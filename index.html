@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>🐱 ネコとあそぼう！ブロックプログラミング + micro:bit</title>
+<script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
+<script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
+<script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+<script src="https://unpkg.com/blockly/msg/ja.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Rounded Mplus 1c', 'Hiragino Maru Gothic Pro', 'Yu Gothic', sans-serif;
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+#header {
+  background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+  padding: 10px 20px;
+  text-align: center;
+  color: #fff;
+  font-size: 26px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+#microbit-status {
+  font-size: 14px;
+  background: rgba(0,0,0,0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+#microbit-status:hover { background: rgba(0,0,0,0.35); }
+#stage-info {
+  background: rgba(255,255,255,0.9);
+  color: #333;
+  padding: 5px 20px;
+  border-radius: 20px;
+  font-size: 18px;
+  text-align: center;
+  margin: 8px auto;
+  max-width: 700px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+#chrome-notice {
+  background: #fff3cd;
+  color: #856404;
+  text-align: center;
+  font-size: 13px;
+  padding: 4px;
+  display: none;
+}
+#main {
+  display: flex;
+  height: calc(100vh - 130px);
+  padding: 8px;
+  gap: 8px;
+}
+#blockly-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+#blocklyDiv {
+  flex: 1;
+  border: 3px solid #5f27cd;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+#buttons {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+#buttons button {
+  padding: 12px 24px;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+#buttons button:hover { transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0,0,0,0.25); }
+#buttons button:active { transform: translateY(1px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+#btn-run { background: linear-gradient(135deg, #00b894, #00cec9); color: #fff; }
+#btn-reset { background: linear-gradient(135deg, #fdcb6e, #f39c12); color: #fff; }
+#btn-prev { background: linear-gradient(135deg, #a29bfe, #6c5ce7); color: #fff; }
+#btn-next { background: linear-gradient(135deg, #fd79a8, #e84393); color: #fff; }
+#game-panel {
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+}
+#game-canvas {
+  border: 4px solid #5f27cd;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+#message-box {
+  background: rgba(255,255,255,0.95);
+  padding: 12px 20px;
+  border-radius: 16px;
+  font-size: 18px;
+  text-align: center;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  color: #333;
+}
+/* micro:bit simulator */
+#microbit-sim {
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  text-align: center;
+  width: 100%;
+}
+#microbit-sim h3 { font-size: 15px; margin-bottom: 8px; color: #555; }
+#led-grid {
+  display: inline-grid;
+  grid-template-columns: repeat(5, 28px);
+  grid-template-rows: repeat(5, 28px);
+  gap: 4px;
+  background: #333;
+  padding: 10px;
+  border-radius: 12px;
+}
+.led-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: #444;
+  transition: background 0.15s;
+}
+.led-dot.on {
+  background: #ff2222;
+  box-shadow: 0 0 8px #ff4444;
+}
+#sim-buttons {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+#sim-buttons button {
+  width: 50px; height: 30px;
+  border-radius: 8px;
+  border: 2px solid #555;
+  background: #ddd;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+}
+#sim-buttons button:active { background: #aaa; }
+#celebration {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+.confetti {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  animation: confetti-fall 3s ease-out forwards;
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+</style>
+</head>
+<body>
+<div id="chrome-notice">⚠ micro:bit せつぞくには Chrome ブラウザが ひつようです</div>
+<div id="header">
+  🐱 ネコとあそぼう！+ micro:bit 🎮
+  <span id="microbit-status" onclick="connectMicrobit()">🔴 micro:bitと つなぐ</span>
+</div>
+<div id="stage-info">ステージ1: ネコをゴールまでうごかそう！</div>
+<div id="main">
+  <div id="blockly-panel">
+    <div id="blocklyDiv"></div>
+    <div id="buttons">
+      <button id="btn-prev" onclick="prevStage()">⬅ まえ</button>
+      <button id="btn-run" onclick="runCode()">▶ じっこう！</button>
+      <button id="btn-reset" onclick="resetStage()">🔄 リセット</button>
+      <button id="btn-next" onclick="nextStage()">つぎ ➡</button>
+    </div>
+  </div>
+  <div id="game-panel">
+    <canvas id="game-canvas" width="400" height="400"></canvas>
+    <div id="message-box">ブロックをくんで ▶じっこう してね！</div>
+    <div id="microbit-sim">
+      <h3>📟 micro:bit シミュレーター</h3>
+      <div id="led-grid"></div>
+      <div id="sim-buttons">
+        <button id="sim-btn-a" onmousedown="simButtonPress('A')" onmouseup="simButtonRelease('A')">A</button>
+        <button id="sim-btn-b" onmousedown="simButtonPress('B')" onmouseup="simButtonRelease('B')">B</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="celebration"></div>
+
+<script>
+// === Check Chrome ===
+if(!/Chrome/.test(navigator.userAgent) || /Edg/.test(navigator.userAgent)) {
+  document.getElementById('chrome-notice').style.display = 'block';
+}
+
+// === LED Simulator ===
+const simLeds = Array.from({length:25}, ()=>false);
+const ledGrid = document.getElementById('led-grid');
+for(let i=0;i<25;i++){
+  const d = document.createElement('div');
+  d.className = 'led-dot';
+  d.dataset.idx = i;
+  ledGrid.appendChild(d);
+}
+function updateSimDisplay(){
+  const dots = ledGrid.querySelectorAll('.led-dot');
+  dots.forEach((d,i)=>{ d.classList.toggle('on', simLeds[i]); });
+}
+function simSetLed(x,y,on){
+  if(x>=0&&x<5&&y>=0&&y<5){ simLeds[y*5+x]=on; updateSimDisplay(); }
+}
+function simClear(){
+  simLeds.fill(false); updateSimDisplay();
+}
+function simShowPattern(pattern){
+  // pattern: "xxxxx,xxxxx,xxxxx,xxxxx,xxxxx" where x=0|1
+  const rows = pattern.split(',');
+  for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+    simLeds[y*5+x] = rows[y] && rows[y][x]==='1';
+  }
+  updateSimDisplay();
+}
+
+// LED patterns
+const PATTERN_HEART = '01010,11111,11111,01110,00100';
+const PATTERN_X     = '10001,01010,00100,01010,10001';
+const PATTERN_ARROW = '00100,01100,11111,01100,00100';
+const PATTERN_STAR  = '00100,01110,11111,01110,01010';
+const PATTERN_CHECK = '00001,00010,10100,01000,00000';
+
+// === micro:bit BLE ===
+const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_TX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write to micro:bit
+const UART_RX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // read from micro:bit
+
+let bleDevice = null;
+let uartTx = null;
+let bleConnected = false;
+let buttonCallbackA = null;
+let buttonCallbackB = null;
+
+function updateBleStatus(){
+  const el = document.getElementById('microbit-status');
+  el.textContent = bleConnected ? '🟢 つながった！' : '🔴 micro:bitと つなぐ';
+}
+
+async function connectMicrobit(){
+  if(bleConnected){ return; }
+  if(!navigator.bluetooth){
+    alert('このブラウザは Web Bluetooth に たいおうしていません。\nChrome をつかってね！');
+    return;
+  }
+  try {
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [UART_SERVICE]
+    });
+    bleDevice.addEventListener('gattserverdisconnected', ()=>{
+      bleConnected = false; uartTx = null; updateBleStatus();
+    });
+    const server = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    uartTx = await service.getCharacteristic(UART_TX);
+    // Listen for button presses from micro:bit
+    try {
+      const uartRx = await service.getCharacteristic(UART_RX);
+      await uartRx.startNotifications();
+      uartRx.addEventListener('characteristicvaluechanged', (e)=>{
+        const val = new TextDecoder().decode(e.target.value).trim();
+        if(val === 'BTN:A' && buttonCallbackA) buttonCallbackA();
+        if(val === 'BTN:B' && buttonCallbackB) buttonCallbackB();
+      });
+    } catch(e){ console.log('UART RX not available', e); }
+    bleConnected = true;
+    updateBleStatus();
+  } catch(e){
+    console.log('BLE connect cancelled or failed', e);
+  }
+}
+
+async function sendBle(cmd){
+  // Always show on simulator
+  if(cmd.startsWith('LED:')){
+    simShowPattern(cmd.substring(4));
+  } else if(cmd === 'CLEAR'){
+    simClear();
+  }
+  // Send to real device if connected
+  if(bleConnected && uartTx){
+    try {
+      const data = new TextEncoder().encode(cmd + '\n');
+      // Split into chunks of 20 bytes (BLE limit)
+      for(let i=0; i<data.length; i+=20){
+        await uartTx.writeValue(data.slice(i, i+20));
+      }
+    } catch(e){ console.log('BLE send error', e); }
+  }
+}
+
+// Sim button handlers
+function simButtonPress(btn){
+  if(btn==='A' && buttonCallbackA) buttonCallbackA();
+  if(btn==='B' && buttonCallbackB) buttonCallbackB();
+}
+function simButtonRelease(btn){}
+
+// === Audio ===
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playTone(freq, duration, type='square') {
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = 0.15;
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + duration);
+}
+function playMoveSound() { playTone(523, 0.1); }
+function playTurnSound() { playTone(392, 0.15, 'triangle'); }
+function playBeep() { playTone(660, 0.2); setTimeout(()=>playTone(880, 0.2), 200); }
+function playFanfare() {
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((f,i) => setTimeout(()=>playTone(f, 0.3, 'square'), i*200));
+}
+function playFailSound() { playTone(200, 0.3, 'sawtooth'); setTimeout(()=>playTone(150, 0.4, 'sawtooth'), 300); }
+
+// Note frequencies for micro:bit blocks
+const NOTE_FREQ = { 'ド':262, 'レ':294, 'ミ':330, 'ファ':349, 'ソ':392, 'ラ':440, 'シ':494, 'たかいド':523 };
+
+// === Stages ===
+const GRID = 5;
+const stages = [
+  {
+    name: 'ステージ1: ネコをゴールまでうごかそう！',
+    hint: '「前にすすむ」を 3かい つかってね！',
+    start: {x:1, y:3, dir:0},
+    goal: {x:4, y:3},
+    walls: [],
+    type: 'cat'
+  },
+  {
+    name: 'ステージ2: まがりみちをすすもう！',
+    hint: '前にすすんで、右をむいて、また前にすすもう！',
+    start: {x:1, y:1, dir:0},
+    goal: {x:3, y:3},
+    walls: [],
+    type: 'cat'
+  },
+  {
+    name: 'ステージ3: くりかえしをつかおう！',
+    hint: '「くりかえす」ブロックでかんたんに！',
+    start: {x:0, y:2, dir:0},
+    goal: {x:4, y:2},
+    walls: [],
+    type: 'cat'
+  },
+  {
+    name: 'ステージ4: LEDに もようを かこう！',
+    hint: '💡「LEDをつける」や「LEDにもようをかく」をつかって もようを つくろう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'led',
+    targetPattern: '10101,01010,10101,01010,10101' // checkerboard
+  },
+  {
+    name: 'ステージ5: おんがくを つくろう！',
+    hint: '🎵「おとをならす」ブロックを ならべて メロディを つくろう！(3おと いじょう)',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'music',
+    minNotes: 3
+  },
+  {
+    name: 'ステージ6: ボタンで ひかりを かえよう！',
+    hint: '❓「ボタンAがおされたら」→ハート、「ボタンBがおされたら」→ほし をつくろう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'button'
+  }
+];
+let currentStage = 0;
+let cat = {x:0, y:0, dir:0};
+let animating = false;
+let noteCount = 0;
+let stage6ASet = false;
+let stage6BSet = false;
+
+// === Canvas ===
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const CELL = canvas.width / GRID;
+
+const dirDelta = [{x:1,y:0},{x:0,y:1},{x:-1,y:0},{x:0,y:-1}];
+const dirAngle = [0, Math.PI/2, Math.PI, -Math.PI/2];
+
+function drawGrid() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++) {
+    ctx.fillStyle = (x+y)%2===0 ? '#e8f8e8' : '#d0f0d0';
+    ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
+  }
+  ctx.strokeStyle = '#b2dfb2'; ctx.lineWidth = 1;
+  for(let i=0;i<=GRID;i++) {
+    ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL); ctx.stroke();
+  }
+}
+
+function drawCatStage(){
+  const s = stages[currentStage];
+  drawGrid();
+  // Goal
+  const g = s.goal;
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+  ctx.fillRect(g.x*CELL, g.y*CELL, CELL, CELL);
+  ctx.font = '50px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('⭐', g.x*CELL+CELL/2, g.y*CELL+CELL/2);
+  // Cat
+  const px = cat.x * CELL + CELL/2, py = cat.y * CELL + CELL/2;
+  ctx.save(); ctx.translate(px, py); ctx.rotate(dirAngle[cat.dir]);
+  ctx.font = '48px serif'; ctx.fillText('🐱', 0, 0);
+  ctx.font = '20px serif'; ctx.fillText('▶', 28, 0);
+  ctx.restore();
+}
+
+function drawLedStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('💡 LED もよう ステージ', 200, 30);
+  // Show target pattern
+  const s = stages[currentStage];
+  if(s.targetPattern){
+    ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa';
+    ctx.fillText('めざす もよう ↓', 200, 60);
+    const rows = s.targetPattern.split(',');
+    const sz = 20, gap = 4, ox = 200 - (5*(sz+gap))/2, oy = 75;
+    for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+      ctx.fillStyle = rows[y][x]==='1' ? '#ff4444' : '#333';
+      ctx.beginPath();
+      ctx.arc(ox+x*(sz+gap)+sz/2, oy+y*(sz+gap)+sz/2, sz/2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  // Show current sim state
+  ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa';
+  ctx.fillText('いまの LED ↓', 200, 200);
+  const sz2 = 30, gap2 = 6, ox2 = 200 - (5*(sz2+gap2))/2, oy2 = 220;
+  for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+    ctx.fillStyle = simLeds[y*5+x] ? '#ff2222' : '#444';
+    ctx.beginPath();
+    ctx.arc(ox2+x*(sz2+gap2)+sz2/2, oy2+y*(sz2+gap2)+sz2/2, sz2/2, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawMusicStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('🎵 おんがく ステージ', 200, 40);
+  ctx.font = '60px serif';
+  ctx.fillText('🎶', 200, 150);
+  ctx.font = '18px sans-serif'; ctx.fillStyle = '#ccc';
+  ctx.fillText('おとをならす ブロックを', 200, 240);
+  ctx.fillText('3つ いじょう ならべてね！', 200, 270);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+  ctx.fillText(`ならした おと: ${noteCount}こ`, 200, 320);
+}
+
+function drawButtonStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('❓ ボタン ステージ', 200, 40);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#ccc';
+  ctx.fillText('Aボタン → ❤ ハート', 200, 100);
+  ctx.fillText('Bボタン → ⭐ ほし', 200, 130);
+  ctx.font = '14px sans-serif'; ctx.fillStyle = '#888';
+  ctx.fillText('じっこう してから、したの A / B ボタンを おしてね', 200, 180);
+  // Status
+  ctx.font = '20px sans-serif';
+  ctx.fillStyle = stage6ASet ? '#00ff88' : '#666';
+  ctx.fillText(stage6ASet ? '✅ Aボタン OK' : '⬜ Aボタン まだ', 200, 250);
+  ctx.fillStyle = stage6BSet ? '#00ff88' : '#666';
+  ctx.fillText(stage6BSet ? '✅ Bボタン OK' : '⬜ Bボタン まだ', 200, 290);
+  if(stage6ASet && stage6BSet){
+    ctx.font = '28px sans-serif'; ctx.fillStyle = '#feca57';
+    ctx.fillText('🎉 クリア！', 200, 360);
+  }
+}
+
+function render() {
+  const s = stages[currentStage];
+  if(s.type === 'cat') drawCatStage();
+  else if(s.type === 'led') drawLedStage();
+  else if(s.type === 'music') drawMusicStage();
+  else if(s.type === 'button') drawButtonStage();
+}
+
+// === Blockly Blocks ===
+// Movement blocks
+Blockly.Blocks['move_forward'] = {
+  init: function() {
+    this.appendDummyInput().appendField('🚶 前にすすむ');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(120);
+  }
+};
+Blockly.Blocks['turn_right'] = {
+  init: function() {
+    this.appendDummyInput().appendField('➡ 右をむく');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(120);
+  }
+};
+Blockly.Blocks['turn_left'] = {
+  init: function() {
+    this.appendDummyInput().appendField('⬅ 左をむく');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(120);
+  }
+};
+Blockly.Blocks['repeat_times'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('🔁 くりかえす')
+      .appendField(new Blockly.FieldNumber(3, 1, 10, 1), 'TIMES')
+      .appendField('かい');
+    this.appendStatementInput('DO');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(30);
+  }
+};
+Blockly.Blocks['play_sound'] = {
+  init: function() {
+    this.appendDummyInput().appendField('🔊 おとをならす');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(330);
+  }
+};
+
+// micro:bit LED blocks
+Blockly.Blocks['led_on'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('💡 LEDをつける x:')
+      .appendField(new Blockly.FieldNumber(0, 0, 4, 1), 'X')
+      .appendField(' y:')
+      .appendField(new Blockly.FieldNumber(0, 0, 4, 1), 'Y');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0);
+  }
+};
+Blockly.Blocks['led_clear'] = {
+  init: function() {
+    this.appendDummyInput().appendField('💡 LEDを ぜんぶけす');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0);
+  }
+};
+Blockly.Blocks['led_pattern'] = {
+  init: function() {
+    this.appendDummyInput().appendField('💡 LEDに もようを かく');
+    for(let y=0;y<5;y++){
+      const inp = this.appendDummyInput();
+      for(let x=0;x<5;x++){
+        inp.appendField(new Blockly.FieldCheckbox('FALSE'), 'P'+y+'_'+x);
+      }
+    }
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0);
+  }
+};
+
+// Music blocks
+Blockly.Blocks['play_note'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('🎵 おとをならす')
+      .appendField(new Blockly.FieldDropdown([
+        ['ド','ド'],['レ','レ'],['ミ','ミ'],['ファ','ファ'],
+        ['ソ','ソ'],['ラ','ラ'],['シ','シ'],['たかいド','たかいド']
+      ]), 'NOTE');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(290);
+  }
+};
+Blockly.Blocks['rest'] = {
+  init: function() {
+    this.appendDummyInput().appendField('🎵 やすみ');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(290);
+  }
+};
+
+// Button event blocks
+Blockly.Blocks['on_button_a'] = {
+  init: function() {
+    this.appendDummyInput().appendField('❓ ボタンAが おされたら');
+    this.appendStatementInput('DO');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(210);
+  }
+};
+Blockly.Blocks['on_button_b'] = {
+  init: function() {
+    this.appendDummyInput().appendField('❓ ボタンBが おされたら');
+    this.appendStatementInput('DO');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(210);
+  }
+};
+
+// === Code Generators ===
+const gen = javascript.javascriptGenerator;
+gen.forBlock['move_forward'] = function() { return 'await moveForward();\n'; };
+gen.forBlock['turn_right'] = function() { return 'await turnRight();\n'; };
+gen.forBlock['turn_left'] = function() { return 'await turnLeft();\n'; };
+gen.forBlock['repeat_times'] = function(block) {
+  const t = block.getFieldValue('TIMES');
+  const b = gen.statementToCode(block, 'DO');
+  return `for(let i=0;i<${t};i++){\n${b}}\n`;
+};
+gen.forBlock['play_sound'] = function() { return 'await doPlaySound();\n'; };
+gen.forBlock['led_on'] = function(block) {
+  const x = block.getFieldValue('X'), y = block.getFieldValue('Y');
+  return `await doLedOn(${x},${y});\n`;
+};
+gen.forBlock['led_clear'] = function() { return 'await doLedClear();\n'; };
+gen.forBlock['led_pattern'] = function(block) {
+  let rows = [];
+  for(let y=0;y<5;y++){
+    let row = '';
+    for(let x=0;x<5;x++){
+      row += block.getFieldValue('P'+y+'_'+x)==='TRUE' ? '1' : '0';
+    }
+    rows.push(row);
+  }
+  return `await doLedPattern("${rows.join(',')}");\n`;
+};
+gen.forBlock['play_note'] = function(block) {
+  const note = block.getFieldValue('NOTE');
+  return `await doPlayNote("${note}");\n`;
+};
+gen.forBlock['rest'] = function() { return 'await doRest();\n'; };
+gen.forBlock['on_button_a'] = function(block) {
+  const code = gen.statementToCode(block, 'DO');
+  return `await doOnButtonA(async()=>{\n${code}});\n`;
+};
+gen.forBlock['on_button_b'] = function(block) {
+  const code = gen.statementToCode(block, 'DO');
+  return `await doOnButtonB(async()=>{\n${code}});\n`;
+};
+
+// === Toolbox per stage ===
+function getToolboxForStage(idx){
+  const s = stages[idx];
+  if(s.type === 'cat'){
+    return `<xml>
+      <category name="🚶 うごき" colour="#4CAF50">
+        <block type="move_forward"></block>
+        <block type="turn_right"></block>
+        <block type="turn_left"></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">3</field></block>
+      </category>
+      <category name="🔊 おと" colour="#E91E63">
+        <block type="play_sound"></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'led'){
+    return `<xml>
+      <category name="💡 LED" colour="#FF0000">
+        <block type="led_on"><field name="X">0</field><field name="Y">0</field></block>
+        <block type="led_clear"></block>
+        <block type="led_pattern"></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">3</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'music'){
+    return `<xml>
+      <category name="🎵 おんがく" colour="#9C27B0">
+        <block type="play_note"><field name="NOTE">ド</field></block>
+        <block type="rest"></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">3</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'button'){
+    return `<xml>
+      <category name="❓ ボタン" colour="#2196F3">
+        <block type="on_button_a"></block>
+        <block type="on_button_b"></block>
+      </category>
+      <category name="💡 LED" colour="#FF0000">
+        <block type="led_pattern"></block>
+        <block type="led_clear"></block>
+      </category>
+    </xml>`;
+  }
+}
+
+// === Init Blockly ===
+let workspace = Blockly.inject('blocklyDiv', {
+  toolbox: getToolboxForStage(0),
+  zoom: { controls: true, startScale: 1.1 },
+  grid: { spacing: 20, length: 3, colour: '#ccc', snap: true },
+  trashcan: true, scrollbars: true
+});
+
+// === Game Logic ===
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function animateMove(fx, fy, tx, ty, dir) {
+  const steps = 10;
+  for(let i=1;i<=steps;i++){
+    const t=i/steps;
+    cat.x=fx+(tx-fx)*t; cat.y=fy+(ty-fy)*t;
+    render();
+    await sleep(30);
+  }
+  cat.x=tx; cat.y=ty;
+}
+
+async function moveForward() {
+  const d = dirDelta[cat.dir];
+  const nx = cat.x + d.x, ny = cat.y + d.y;
+  if(nx<0||nx>=GRID||ny<0||ny>=GRID) {
+    setMessage('⚠ かべに ぶつかっちゃった！');
+    playFailSound();
+    sendBle('LED:'+PATTERN_X);
+    throw 'wall';
+  }
+  playMoveSound();
+  sendBle('LED:'+PATTERN_ARROW);
+  await animateMove(cat.x, cat.y, nx, ny, cat.dir);
+}
+
+async function turnRight() {
+  playTurnSound();
+  cat.dir = (cat.dir + 1) % 4;
+  render(); await sleep(200);
+}
+
+async function turnLeft() {
+  playTurnSound();
+  cat.dir = (cat.dir + 3) % 4;
+  render(); await sleep(200);
+}
+
+async function doPlaySound() { playBeep(); await sleep(400); }
+
+async function doLedOn(x,y) {
+  simSetLed(x,y,true);
+  // Build current pattern and send
+  let rows=[];
+  for(let r=0;r<5;r++){
+    let s='';
+    for(let c=0;c<5;c++) s+=simLeds[r*5+c]?'1':'0';
+    rows.push(s);
+  }
+  await sendBle('LED:'+rows.join(','));
+  render();
+  await sleep(200);
+}
+
+async function doLedClear() {
+  simClear();
+  await sendBle('CLEAR');
+  render();
+  await sleep(200);
+}
+
+async function doLedPattern(pattern) {
+  simShowPattern(pattern);
+  await sendBle('LED:'+pattern);
+  render();
+  await sleep(300);
+}
+
+async function doPlayNote(note) {
+  const freq = NOTE_FREQ[note] || 262;
+  playTone(freq, 0.4);
+  await sendBle('TONE:'+freq+':400');
+  noteCount++;
+  render();
+  await sleep(500);
+}
+
+async function doRest() {
+  await sleep(400);
+}
+
+async function doOnButtonA(callback) {
+  buttonCallbackA = async ()=>{
+    try { await callback(); stage6ASet=true; render(); } catch(e){}
+  };
+}
+
+async function doOnButtonB(callback) {
+  buttonCallbackB = async ()=>{
+    try { await callback(); stage6BSet=true; render(); } catch(e){}
+  };
+}
+
+function setMessage(msg) {
+  document.getElementById('message-box').textContent = msg;
+}
+
+function loadStage() {
+  const s = stages[currentStage];
+  cat = {...s.start};
+  noteCount = 0;
+  stage6ASet = false; stage6BSet = false;
+  buttonCallbackA = null; buttonCallbackB = null;
+  simClear();
+  document.getElementById('stage-info').textContent = s.name;
+  setMessage(s.hint);
+  // Update toolbox
+  workspace.updateToolbox(getToolboxForStage(currentStage));
+  workspace.clear();
+  render();
+}
+
+function resetStage() {
+  if(animating) return;
+  const s = stages[currentStage];
+  cat = {...s.start};
+  noteCount = 0;
+  stage6ASet = false; stage6BSet = false;
+  simClear();
+  setMessage(s.hint);
+  render();
+}
+
+function prevStage() { if(!animating && currentStage>0){ currentStage--; loadStage(); } }
+function nextStage() { if(!animating && currentStage<stages.length-1){ currentStage++; loadStage(); } }
+
+function celebrate() {
+  const el = document.getElementById('celebration');
+  el.style.display = 'block'; el.innerHTML = '';
+  const colors = ['#ff6b6b','#feca57','#48dbfb','#ff9ff3','#00b894','#fd79a8','#6c5ce7'];
+  for(let i=0;i<80;i++){
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random()*100+'%';
+    c.style.top = '-20px';
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.animationDelay = Math.random()*1+'s';
+    c.style.borderRadius = Math.random()>0.5 ? '50%' : '2px';
+    c.style.width = (8+Math.random()*10)+'px';
+    c.style.height = (8+Math.random()*10)+'px';
+    el.appendChild(c);
+  }
+  setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+
+async function checkClear(){
+  const s = stages[currentStage];
+  if(s.type === 'cat'){
+    if(cat.x === s.goal.x && cat.y === s.goal.y){
+      setMessage('🎉 クリア！すごい！！ 🎉');
+      playFanfare();
+      celebrate();
+      // micro:bit: heart + melody
+      await sendBle('LED:'+PATTERN_HEART);
+      await sendBle('TONE:523:200');
+      setTimeout(()=>sendBle('TONE:659:200'), 250);
+      setTimeout(()=>sendBle('TONE:784:200'), 500);
+      setTimeout(()=>sendBle('TONE:1047:400'), 750);
+      return true;
+    }
+    setMessage('🤔 ゴールに たどりつけなかったよ。もういちど やってみよう！');
+    playFailSound();
+    return false;
+  } else if(s.type === 'led'){
+    // Check if sim matches target
+    const target = s.targetPattern.split(',');
+    let match = true;
+    for(let y=0;y<5&&match;y++) for(let x=0;x<5&&match;x++){
+      if((target[y][x]==='1') !== simLeds[y*5+x]) match=false;
+    }
+    if(match){
+      setMessage('🎉 もようが できた！すごい！ 🎉');
+      playFanfare(); celebrate();
+      return true;
+    }
+    setMessage('🤔 もようが ちがうよ。もういちど やってみよう！');
+    return false;
+  } else if(s.type === 'music'){
+    if(noteCount >= s.minNotes){
+      setMessage('🎉 すてきな メロディ！ 🎉');
+      playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    setMessage(`🤔 もっと おとを ならそう！(あと ${s.minNotes - noteCount}こ)`);
+    return false;
+  } else if(s.type === 'button'){
+    setMessage('ボタンを おして ためしてね！ したの A / B ボタンを おそう');
+    return false; // checked via button callbacks
+  }
+}
+
+async function runCode() {
+  if(animating) return;
+  animating = true;
+  resetStage();
+  await sleep(300);
+
+  const code = gen.workspaceToCode(workspace);
+  if(!code.trim()){
+    setMessage('ブロックを おいてから じっこう してね！');
+    animating = false; return;
+  }
+
+  setMessage('じっこうちゅう... 🏃');
+  try {
+    const fn = new Function(
+      'moveForward','turnRight','turnLeft','doPlaySound','sleep',
+      'doLedOn','doLedClear','doLedPattern','doPlayNote','doRest',
+      'doOnButtonA','doOnButtonB',
+      `return (async()=>{\n${code}\n})()`
+    );
+    await fn(moveForward, turnRight, turnLeft, doPlaySound, sleep,
+             doLedOn, doLedClear, doLedPattern, doPlayNote, doRest,
+             doOnButtonA, doOnButtonB);
+    await checkClear();
+  } catch(e) {
+    if(e !== 'wall') {
+      setMessage('❌ エラーが おきちゃった。ブロックを たしかめてね！');
+      console.error(e);
+    }
+  }
+  animating = false;
+}
+
+// Init
+loadStage();
+</script>
+</body>
+</html>
