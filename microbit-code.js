@@ -1,6 +1,5 @@
 // micro:bit v2 用 受信プログラム
 // MakeCode (https://makecode.microbit.org/) の JavaScript モードに貼り付けてください
-// Bluetooth UART でブラウザからコマンドを受信し、LED・音を制御します
 
 bluetooth.startUartService()
 
@@ -27,11 +26,15 @@ input.onButtonPressed(Button.B, function () {
 bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
     let line = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine))
 
+    if (line.length == 0) {
+        return
+    }
+
     if (line.includes("LED:")) {
         let data = line.replace("LED:", "")
         let rows = data.split(",")
-        for (let y = 0; y <= 4; y++) {
-            for (let x = 0; x <= 4; x++) {
+        for (let y = 0; y < 5; y++) {
+            for (let x = 0; x < 5; x++) {
                 if (y < rows.length && x < rows[y].length && rows[y].charAt(x) == "1") {
                     led.plot(x, y)
                 } else {
@@ -45,8 +48,12 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () 
         let freq = parseFloat(parts[0])
         let dur = parseFloat(parts[1])
         if (freq > 0 && dur > 0) {
-            music.stopAllSounds()
-            music.playTone(freq, dur)
+            soundExpression.giggle.stop()
+            control.inBackground(function () {
+                music.ringTone(freq)
+                basic.pause(dur)
+                music.ringTone(0)
+            })
         }
     } else if (line.includes("CLEAR")) {
         basic.clearScreen()
