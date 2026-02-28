@@ -342,6 +342,7 @@ async function sendBle(cmd){
       // Split into chunks of 20 bytes (BLE limit)
       for(let i=0; i<data.length; i+=20){
         await uartTx.writeValueWithoutResponse(data.slice(i, i+20));
+        if(i+20 < data.length) await new Promise(r => setTimeout(r, 50));
       }
     } catch(e){ console.log('BLE send error', e); }
   }
