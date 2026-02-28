@@ -333,7 +333,7 @@ async function sendBle(cmd){
       const data = new TextEncoder().encode(cmd + '\n');
       // Split into chunks of 20 bytes (BLE limit)
       for(let i=0; i<data.length; i+=20){
-        await uartTx.writeValue(data.slice(i, i+20));
+        await uartTx.writeValueWithoutResponse(data.slice(i, i+20));
       }
     } catch(e){ console.log('BLE send error', e); }
   }
