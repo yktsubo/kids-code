@@ -301,20 +301,7 @@ async function connectMicrobit(){
       bleConnected = false; uartTx = null; updateBleStatus();
     });
     const server = await bleDevice.gatt.connect();
-    // Debug: list all services
-    const services = await server.getPrimaryServices();
-    console.log('Available services:', services.map(s => s.uuid));
     const service = await server.getPrimaryService(UART_SERVICE);
-    // Debug: list all characteristics
-    const chars = await service.getCharacteristics();
-    for(const c of chars) {
-      console.log('Characteristic:', c.uuid, 'properties:', JSON.stringify({
-        read: c.properties.read,
-        write: c.properties.write,
-        writeWithoutResponse: c.properties.writeWithoutResponse,
-        notify: c.properties.notify
-      }));
-    }
     uartTx = await service.getCharacteristic(UART_TX);
     // Listen for button presses from micro:bit
     try {
@@ -328,33 +315,14 @@ async function connectMicrobit(){
     } catch(e){ console.log('UART RX not available', e); }
     bleConnected = true;
     updateBleStatus();
-    // Test UART: try both write methods
+    // Show heart on connect
     try {
-      // Method 1: writeValueWithoutResponse
-      const t1 = new TextEncoder().encode('CLEAR\n');
-      await uartTx.writeValueWithoutResponse(t1);
-      console.log('writeValueWithoutResponse OK');
-    } catch(e) { console.log('writeValueWithoutResponse FAILED', e); }
-    try {
-      // Method 2: writeValue (with response)
-      const t2 = new TextEncoder().encode('CLEAR\n');
-      await uartTx.writeValue(t2);
-      console.log('writeValue OK');
-    } catch(e) { console.log('writeValue FAILED', e); }
-    // Try sending LED heart with writeValue
-    try {
-      // Short pattern that fits in 20 bytes
-      const t3 = new TextEncoder().encode('LED:01010,11111\n');
-      await uartTx.writeValue(t3);
-      console.log('LED test sent');
-      await new Promise(r => setTimeout(r, 200));
-      const t4 = new TextEncoder().encode('LED:01010,11111,11111,01110,00100\n');
-      for(let i=0; i<t4.length; i+=20){
-        await uartTx.writeValue(t4.slice(i, i+20));
-        await new Promise(r => setTimeout(r, 100));
+      const heart = new TextEncoder().encode('LED:01010,11111,11111,01110,00100\n');
+      for(let i=0; i<heart.length; i+=20){
+        await uartTx.writeValueWithoutResponse(heart.slice(i, i+20));
+        await new Promise(r => setTimeout(r, 50));
       }
-      console.log('LED heart sent');
-    } catch(e) { console.log('LED test FAILED', e); }
+    } catch(e) { /* ignore */ }
   } catch(e){
     console.log('BLE connect cancelled or failed', e);
   }
