@@ -128,7 +128,6 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   color: #333;
 }
-/* micro:bit simulator */
 #microbit-sim {
   background: rgba(255,255,255,0.95);
   border-radius: 16px;
@@ -250,7 +249,6 @@ function simClear(){
   simLeds.fill(false); updateSimDisplay();
 }
 function simShowPattern(pattern){
-  // pattern: "xxxxx,xxxxx,xxxxx,xxxxx,xxxxx" where x=0|1
   const rows = pattern.split(',');
   for(let y=0;y<5;y++) for(let x=0;x<5;x++){
     simLeds[y*5+x] = rows[y] && rows[y][x]==='1';
@@ -267,14 +265,16 @@ const PATTERN_CHECK = '00001,00010,10100,01000,00000';
 
 // === micro:bit BLE ===
 const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const UART_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // write to micro:bit (has write property)
-const UART_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // notifications from micro:bit
+const UART_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
 let bleDevice = null;
 let uartTx = null;
 let bleConnected = false;
 let buttonCallbackA = null;
 let buttonCallbackB = null;
+let lastBleSendTime = 0;
+const BLE_MIN_INTERVAL = 600; // ms — TONE送信の最低間隔
 
 function updateBleStatus(){
   const el = document.getElementById('microbit-status');
@@ -303,7 +303,6 @@ async function connectMicrobit(){
     const server = await bleDevice.gatt.connect();
     const service = await server.getPrimaryService(UART_SERVICE);
     uartTx = await service.getCharacteristic(UART_TX);
-    // Listen for button presses from micro:bit
     try {
       const uartRx = await service.getCharacteristic(UART_RX);
       await uartRx.startNotifications();
@@ -315,7 +314,6 @@ async function connectMicrobit(){
     } catch(e){ console.log('UART RX not available', e); }
     bleConnected = true;
     updateBleStatus();
-    // Show heart on connect
     try {
       const heart = new TextEncoder().encode('LED:01010,11111,11111,01110,00100\n');
       for(let i=0; i<heart.length; i+=20){
@@ -338,8 +336,16 @@ async function sendBle(cmd){
   // Send to real device if connected
   if(bleConnected && uartTx){
     try {
+      // TONEコマンドは最低600ms間隔を空ける
+      if(cmd.startsWith('TONE:')){
+        const now = Date.now();
+        const elapsed = now - lastBleSendTime;
+        if(elapsed < BLE_MIN_INTERVAL){
+          await new Promise(r => setTimeout(r, BLE_MIN_INTERVAL - elapsed));
+        }
+        lastBleSendTime = Date.now();
+      }
       const data = new TextEncoder().encode(cmd + '\n');
-      // Split into chunks of 20 bytes (BLE limit)
       for(let i=0; i<data.length; i+=20){
         await uartTx.writeValueWithoutResponse(data.slice(i, i+20));
         if(i+20 < data.length) await new Promise(r => setTimeout(r, 50));
@@ -369,9 +375,13 @@ function playTone(freq, duration, type='square') {
 function playMoveSound() { playTone(523, 0.1); }
 function playTurnSound() { playTone(392, 0.15, 'triangle'); }
 function playBeep() { playTone(660, 0.2); setTimeout(()=>playTone(880, 0.2), 200); }
-function playFanfare() {
+async function playFanfare() {
   const notes = [523, 659, 784, 1047];
-  notes.forEach((f,i) => setTimeout(()=>playTone(f, 0.3, 'square'), i*200));
+  for(let i=0;i<notes.length;i++){
+    playTone(notes[i], 0.3, 'square');
+    await sendBle('TONE:'+notes[i]+':300');
+    await sleep(300);
+  }
 }
 function playFailSound() { playTone(200, 0.3, 'sawtooth'); setTimeout(()=>playTone(150, 0.4, 'sawtooth'), 300); }
 
@@ -411,7 +421,7 @@ const stages = [
     start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
     walls: [],
     type: 'led',
-    targetPattern: '10101,01010,10101,01010,10101' // checkerboard
+    targetPattern: '10101,01010,10101,01010,10101'
   },
   {
     name: 'ステージ5: おんがくを つくろう！',
@@ -427,6 +437,56 @@ const stages = [
     start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
     walls: [],
     type: 'button'
+  },
+  // === 新ステージ ===
+  {
+    name: 'ステージ7: ジグザグみち 🐍',
+    hint: '前にすすむ → 右をむく → 前にすすむ → 左をむく を くりかえそう！',
+    start: {x:0, y:0, dir:0},
+    goal: {x:4, y:4},
+    walls: [],
+    type: 'cat'
+  },
+  {
+    name: 'ステージ8: LEDアニメーション 🎬',
+    hint: '💡「LEDにもようをかく」を 3つ ならべよう！じゅんばんに ひょうじされるよ！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'led_anim',
+    minPatterns: 3
+  },
+  {
+    name: 'ステージ9: おつりけいさん 💰',
+    hint: '100えんで 70えんの ものを かったら、おつりは いくら？「おかね」ブロックで けいさんしよう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'money_change',
+    payAmount: 100,
+    itemPrice: 70,
+    correctChange: 30
+  },
+  {
+    name: 'ステージ10: おみせやさん 🏪',
+    hint: '💰 しいれねだんより たかく うって、りえきを だそう！（りえき＝うりねだん−しいれねだん）',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'shop',
+    costPrice: 50
+  },
+  {
+    name: 'ステージ11: くりかえしアート 🎨',
+    hint: '🔁「くりかえす」と「LEDをつける」で きれいな もようを つくろう！（8こ いじょう つけよう）',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'loop_art',
+    minLeds: 8
+  },
+  {
+    name: 'ステージ12: じゆうモード 🌈',
+    hint: '🌟 すべての ブロックが つかえるよ！じゆうに つくってみよう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'free'
   }
 ];
 let currentStage = 0;
@@ -435,6 +495,12 @@ let animating = false;
 let noteCount = 0;
 let stage6ASet = false;
 let stage6BSet = false;
+
+// Stage-specific state
+let ledAnimPatterns = [];  // stage 8
+let moneyResult = null;    // stage 9
+let shopProfit = null;     // stage 10
+let loopArtCount = 0;      // stage 11
 
 // === Canvas ===
 const canvas = document.getElementById('game-canvas');
@@ -460,13 +526,11 @@ function drawGrid() {
 function drawCatStage(){
   const s = stages[currentStage];
   drawGrid();
-  // Goal
   const g = s.goal;
   ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
   ctx.fillRect(g.x*CELL, g.y*CELL, CELL, CELL);
   ctx.font = '50px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('⭐', g.x*CELL+CELL/2, g.y*CELL+CELL/2);
-  // Cat
   const px = cat.x * CELL + CELL/2, py = cat.y * CELL + CELL/2;
   ctx.save(); ctx.translate(px, py); ctx.rotate(dirAngle[cat.dir]);
   ctx.font = '48px serif'; ctx.fillText('🐱', 0, 0);
@@ -479,7 +543,6 @@ function drawLedStage(){
   ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
   ctx.fillText('💡 LED もよう ステージ', 200, 30);
-  // Show target pattern
   const s = stages[currentStage];
   if(s.targetPattern){
     ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa';
@@ -493,7 +556,6 @@ function drawLedStage(){
       ctx.fill();
     }
   }
-  // Show current sim state
   ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa';
   ctx.fillText('いまの LED ↓', 200, 200);
   const sz2 = 30, gap2 = 6, ox2 = 200 - (5*(sz2+gap2))/2, oy2 = 220;
@@ -529,7 +591,6 @@ function drawButtonStage(){
   ctx.fillText('Bボタン → ⭐ ほし', 200, 130);
   ctx.font = '14px sans-serif'; ctx.fillStyle = '#888';
   ctx.fillText('じっこう してから、したの A / B ボタンを おしてね', 200, 180);
-  // Status
   ctx.font = '20px sans-serif';
   ctx.fillStyle = stage6ASet ? '#00ff88' : '#666';
   ctx.fillText(stage6ASet ? '✅ Aボタン OK' : '⬜ Aボタン まだ', 200, 250);
@@ -541,12 +602,156 @@ function drawButtonStage(){
   }
 }
 
+function drawLedAnimStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('🎬 LED アニメーション', 200, 30);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#ccc';
+  ctx.fillText('「LEDにもようをかく」を 3つ いじょう', 200, 65);
+  ctx.fillText('ならべると アニメーション になるよ！', 200, 90);
+  // Show recorded patterns
+  if(ledAnimPatterns.length > 0){
+    ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa';
+    ctx.fillText(`きろくした パターン: ${ledAnimPatterns.length}こ`, 200, 130);
+    const maxShow = Math.min(ledAnimPatterns.length, 3);
+    for(let p=0;p<maxShow;p++){
+      const rows = ledAnimPatterns[p].split(',');
+      const sz=14, gap=2, ox=70+p*120, oy=150;
+      for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+        ctx.fillStyle = (rows[y] && rows[y][x]==='1') ? '#ff4444' : '#333';
+        ctx.beginPath();
+        ctx.arc(ox+x*(sz+gap)+sz/2, oy+y*(sz+gap)+sz/2, sz/2, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+  // Current LED
+  ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa';
+  ctx.fillText('いまの LED ↓', 200, 270);
+  const sz2 = 26, gap2 = 5, ox2 = 200 - (5*(sz2+gap2))/2, oy2 = 285;
+  for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+    ctx.fillStyle = simLeds[y*5+x] ? '#ff2222' : '#444';
+    ctx.beginPath();
+    ctx.arc(ox2+x*(sz2+gap2)+sz2/2, oy2+y*(sz2+gap2)+sz2/2, sz2/2, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawMoneyChangeStage(){
+  const s = stages[currentStage];
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#fffde7'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('💰 おつりけいさん', 200, 40);
+  ctx.font = '50px serif';
+  ctx.fillText('🍎', 200, 110);
+  ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
+  ctx.fillText(`りんごは ${s.itemPrice}えん です`, 200, 160);
+  ctx.fillText(`${s.payAmount}えん はらったら、おつりは？`, 200, 195);
+  ctx.font = '60px serif';
+  ctx.fillText('🪙', 100, 280);
+  ctx.fillText('➡', 200, 280);
+  ctx.fillText('❓', 300, 280);
+  if(moneyResult !== null){
+    ctx.font = '22px sans-serif';
+    ctx.fillStyle = moneyResult === s.correctChange ? '#00b894' : '#e17055';
+    ctx.fillText(`こたえ: ${moneyResult}えん`, 200, 350);
+    if(moneyResult === s.correctChange){
+      ctx.fillText('🎉 せいかい！', 200, 385);
+    } else {
+      ctx.fillText('🤔 ちがうよ、もういちど！', 200, 385);
+    }
+  }
+}
+
+function drawShopStage(){
+  const s = stages[currentStage];
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#e8f5e9'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('🏪 おみせやさん', 200, 40);
+  ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
+  ctx.fillText(`しいれねだん: ${s.costPrice}えん`, 200, 80);
+  ctx.fillText('うりねだんを きめて、りえきを だそう！', 200, 110);
+  ctx.font = '50px serif';
+  ctx.fillText('🧸', 120, 190);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+  ctx.fillText(`しいれ: ${s.costPrice}えん`, 120, 230);
+  ctx.font = '50px serif';
+  ctx.fillText('🛒', 300, 190);
+  if(shopProfit !== null){
+    ctx.font = '22px sans-serif';
+    if(shopProfit > 0){
+      ctx.fillStyle = '#00b894';
+      ctx.fillText(`りえき: ${shopProfit}えん 💰`, 200, 300);
+      ctx.fillText('🎉 りえきが でた！クリア！', 200, 340);
+    } else if(shopProfit === 0){
+      ctx.fillStyle = '#f39c12';
+      ctx.fillText('りえき: 0えん（トントン）', 200, 300);
+      ctx.fillText('🤔 もうちょっと たかく うろう！', 200, 340);
+    } else {
+      ctx.fillStyle = '#e17055';
+      ctx.fillText(`そんしつ: ${shopProfit}えん 😢`, 200, 300);
+      ctx.fillText('🤔 しいれねだんより たかく うろう！', 200, 340);
+    }
+  }
+}
+
+function drawLoopArtStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('🎨 くりかえしアート', 200, 30);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#ccc';
+  ctx.fillText('🔁「くりかえす」と「LEDをつける」で', 200, 65);
+  ctx.fillText('きれいな もようを つくろう！(8こ いじょう)', 200, 90);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+  ctx.fillText(`ついた LED: ${loopArtCount}こ`, 200, 120);
+  const sz2 = 30, gap2 = 6, ox2 = 200 - (5*(sz2+gap2))/2, oy2 = 150;
+  for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+    ctx.fillStyle = simLeds[y*5+x] ? '#ff2222' : '#444';
+    ctx.beginPath();
+    ctx.arc(ox2+x*(sz2+gap2)+sz2/2, oy2+y*(sz2+gap2)+sz2/2, sz2/2, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawFreeStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const gradient = ctx.createLinearGradient(0,0,400,400);
+  gradient.addColorStop(0,'#667eea'); gradient.addColorStop(1,'#764ba2');
+  ctx.fillStyle = gradient; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '28px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('🌈 じゆうモード', 200, 50);
+  ctx.font = '18px sans-serif'; ctx.fillStyle = '#ddd';
+  ctx.fillText('すべての ブロックが つかえるよ！', 200, 90);
+  ctx.fillText('じゆうに つくってみよう！', 200, 120);
+  ctx.font = '80px serif';
+  ctx.fillText('🎨', 120, 220);
+  ctx.fillText('🎵', 280, 220);
+  ctx.fillText('🐱', 200, 330);
+  // Show LED state
+  const sz2 = 20, gap2 = 4, ox2 = 200 - (5*(sz2+gap2))/2, oy2 = 350;
+  for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+    ctx.fillStyle = simLeds[y*5+x] ? '#ff2222' : 'rgba(255,255,255,0.2)';
+    ctx.beginPath();
+    ctx.arc(ox2+x*(sz2+gap2)+sz2/2, oy2+y*(sz2+gap2)+sz2/2, sz2/2, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
 function render() {
   const s = stages[currentStage];
   if(s.type === 'cat') drawCatStage();
   else if(s.type === 'led') drawLedStage();
   else if(s.type === 'music') drawMusicStage();
   else if(s.type === 'button') drawButtonStage();
+  else if(s.type === 'led_anim') drawLedAnimStage();
+  else if(s.type === 'money_change') drawMoneyChangeStage();
+  else if(s.type === 'shop') drawShopStage();
+  else if(s.type === 'loop_art') drawLoopArtStage();
+  else if(s.type === 'free') drawFreeStage();
 }
 
 // === Blockly Blocks ===
@@ -651,6 +856,47 @@ Blockly.Blocks['on_button_b'] = {
   }
 };
 
+// === Money blocks (new) ===
+Blockly.Blocks['money_value'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('💰 おかね')
+      .appendField(new Blockly.FieldNumber(100, 0, 9999, 1), 'AMOUNT')
+      .appendField('えん');
+    this.setOutput(true, 'Number');
+    this.setColour(65);
+  }
+};
+Blockly.Blocks['money_buy'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('💰 かう')
+      .appendField(new Blockly.FieldDropdown([
+        ['🍎 りんご','りんご'],['🍌 バナナ','バナナ'],['🧸 ぬいぐるみ','ぬいぐるみ'],
+        ['📕 ほん','ほん'],['🍰 ケーキ','ケーキ']
+      ]), 'ITEM');
+    this.appendValueInput('PRICE').appendField('ねだん:');
+    this.appendValueInput('PAY').appendField('はらう:');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(65);
+  }
+};
+Blockly.Blocks['money_change'] = {
+  init: function() {
+    this.appendDummyInput().appendField('💰 おつり');
+    this.setOutput(true, 'Number');
+    this.setColour(65);
+  }
+};
+Blockly.Blocks['money_sell'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('💰 うる ねだん:');
+    this.appendValueInput('SELL_PRICE');
+    this.appendDummyInput().appendField('えん');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(65);
+  }
+};
+
 // === Code Generators ===
 const gen = javascript.javascriptGenerator;
 gen.forBlock['move_forward'] = function() { return 'await moveForward();\n'; };
@@ -690,6 +936,22 @@ gen.forBlock['on_button_a'] = function(block) {
 gen.forBlock['on_button_b'] = function(block) {
   const code = gen.statementToCode(block, 'DO');
   return `await doOnButtonB(async()=>{\n${code}});\n`;
+};
+gen.forBlock['money_value'] = function(block) {
+  return [block.getFieldValue('AMOUNT'), gen.ORDER_ATOMIC];
+};
+gen.forBlock['money_buy'] = function(block) {
+  const item = block.getFieldValue('ITEM');
+  const price = gen.valueToCode(block, 'PRICE', gen.ORDER_ATOMIC) || '0';
+  const pay = gen.valueToCode(block, 'PAY', gen.ORDER_ATOMIC) || '0';
+  return `await doMoneyBuy("${item}", ${price}, ${pay});\n`;
+};
+gen.forBlock['money_change'] = function() {
+  return ['getMoneyChange()', gen.ORDER_FUNCTION_CALL];
+};
+gen.forBlock['money_sell'] = function(block) {
+  const price = gen.valueToCode(block, 'SELL_PRICE', gen.ORDER_ATOMIC) || '0';
+  return `await doMoneySell(${price});\n`;
 };
 
 // === Toolbox per stage ===
@@ -739,6 +1001,80 @@ function getToolboxForStage(idx){
       <category name="💡 LED" colour="#FF0000">
         <block type="led_pattern"></block>
         <block type="led_clear"></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'led_anim'){
+    return `<xml>
+      <category name="💡 LED" colour="#FF0000">
+        <block type="led_pattern"></block>
+        <block type="led_clear"></block>
+        <block type="led_on"><field name="X">0</field><field name="Y">0</field></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">3</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'money_change'){
+    return `<xml>
+      <category name="💰 おかね" colour="#F9A825">
+        <block type="money_buy">
+          <field name="ITEM">りんご</field>
+          <value name="PRICE"><block type="money_value"><field name="AMOUNT">70</field></block></value>
+          <value name="PAY"><block type="money_value"><field name="AMOUNT">100</field></block></value>
+        </block>
+        <block type="money_value"><field name="AMOUNT">100</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'shop'){
+    return `<xml>
+      <category name="💰 おかね" colour="#F9A825">
+        <block type="money_sell">
+          <value name="SELL_PRICE"><block type="money_value"><field name="AMOUNT">80</field></block></value>
+        </block>
+        <block type="money_value"><field name="AMOUNT">80</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'loop_art'){
+    return `<xml>
+      <category name="💡 LED" colour="#FF0000">
+        <block type="led_on"><field name="X">0</field><field name="Y">0</field></block>
+        <block type="led_clear"></block>
+        <block type="led_pattern"></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">5</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'free'){
+    return `<xml>
+      <category name="🚶 うごき" colour="#4CAF50">
+        <block type="move_forward"></block>
+        <block type="turn_right"></block>
+        <block type="turn_left"></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">3</field></block>
+      </category>
+      <category name="💡 LED" colour="#FF0000">
+        <block type="led_on"><field name="X">0</field><field name="Y">0</field></block>
+        <block type="led_clear"></block>
+        <block type="led_pattern"></block>
+      </category>
+      <category name="🎵 おんがく" colour="#9C27B0">
+        <block type="play_note"><field name="NOTE">ド</field></block>
+        <block type="rest"></block>
+      </category>
+      <category name="🔊 おと" colour="#E91E63">
+        <block type="play_sound"></block>
+      </category>
+      <category name="❓ ボタン" colour="#2196F3">
+        <block type="on_button_a"></block>
+        <block type="on_button_b"></block>
+      </category>
+      <category name="💰 おかね" colour="#F9A825">
+        <block type="money_value"><field name="AMOUNT">100</field></block>
+        <block type="money_buy"><field name="ITEM">りんご</field></block>
+        <block type="money_sell"></block>
       </category>
     </xml>`;
   }
@@ -796,7 +1132,6 @@ async function doPlaySound() { playBeep(); await sleep(400); }
 
 async function doLedOn(x,y) {
   simSetLed(x,y,true);
-  // Build current pattern and send
   let rows=[];
   for(let r=0;r<5;r++){
     let s='';
@@ -804,6 +1139,7 @@ async function doLedOn(x,y) {
     rows.push(s);
   }
   await sendBle('LED:'+rows.join(','));
+  loopArtCount = simLeds.filter(v=>v).length;
   render();
   await sleep(200);
 }
@@ -818,8 +1154,10 @@ async function doLedClear() {
 async function doLedPattern(pattern) {
   simShowPattern(pattern);
   await sendBle('LED:'+pattern);
+  // Record for animation stage
+  ledAnimPatterns.push(pattern);
   render();
-  await sleep(300);
+  await sleep(500);
 }
 
 async function doPlayNote(note) {
@@ -828,7 +1166,7 @@ async function doPlayNote(note) {
   await sendBle('TONE:'+freq+':400');
   noteCount++;
   render();
-  await sleep(500);
+  await sleep(600); // 600ms以上の間隔を確保
 }
 
 async function doRest() {
@@ -847,6 +1185,38 @@ async function doOnButtonB(callback) {
   };
 }
 
+// Money functions
+let lastChange = 0;
+async function doMoneyBuy(item, price, pay) {
+  lastChange = pay - price;
+  moneyResult = lastChange;
+  playTone(440, 0.2);
+  await sleep(300);
+  playTone(880, 0.2);
+  render();
+  await sleep(500);
+}
+
+function getMoneyChange() {
+  return lastChange;
+}
+
+async function doMoneySell(sellPrice) {
+  const s = stages[currentStage];
+  shopProfit = sellPrice - s.costPrice;
+  if(shopProfit > 0){
+    playTone(523, 0.2);
+    await sleep(200);
+    playTone(659, 0.2);
+    await sleep(200);
+    playTone(784, 0.3);
+  } else {
+    playFailSound();
+  }
+  render();
+  await sleep(500);
+}
+
 function setMessage(msg) {
   document.getElementById('message-box').textContent = msg;
 }
@@ -857,10 +1227,14 @@ function loadStage() {
   noteCount = 0;
   stage6ASet = false; stage6BSet = false;
   buttonCallbackA = null; buttonCallbackB = null;
+  ledAnimPatterns = [];
+  moneyResult = null;
+  shopProfit = null;
+  loopArtCount = 0;
+  lastChange = 0;
   simClear();
   document.getElementById('stage-info').textContent = s.name;
   setMessage(s.hint);
-  // Update toolbox
   workspace.updateToolbox(getToolboxForStage(currentStage));
   workspace.clear();
   render();
@@ -872,6 +1246,11 @@ function resetStage() {
   cat = {...s.start};
   noteCount = 0;
   stage6ASet = false; stage6BSet = false;
+  ledAnimPatterns = [];
+  moneyResult = null;
+  shopProfit = null;
+  loopArtCount = 0;
+  lastChange = 0;
   simClear();
   setMessage(s.hint);
   render();
@@ -904,21 +1283,15 @@ async function checkClear(){
   if(s.type === 'cat'){
     if(cat.x === s.goal.x && cat.y === s.goal.y){
       setMessage('🎉 クリア！すごい！！ 🎉');
-      playFanfare();
+      await playFanfare();
       celebrate();
-      // micro:bit: heart + melody
       await sendBle('LED:'+PATTERN_HEART);
-      await sendBle('TONE:523:200');
-      setTimeout(()=>sendBle('TONE:659:200'), 250);
-      setTimeout(()=>sendBle('TONE:784:200'), 500);
-      setTimeout(()=>sendBle('TONE:1047:400'), 750);
       return true;
     }
     setMessage('🤔 ゴールに たどりつけなかったよ。もういちど やってみよう！');
     playFailSound();
     return false;
   } else if(s.type === 'led'){
-    // Check if sim matches target
     const target = s.targetPattern.split(',');
     let match = true;
     for(let y=0;y<5&&match;y++) for(let x=0;x<5&&match;x++){
@@ -926,7 +1299,7 @@ async function checkClear(){
     }
     if(match){
       setMessage('🎉 もようが できた！すごい！ 🎉');
-      playFanfare(); celebrate();
+      await playFanfare(); celebrate();
       return true;
     }
     setMessage('🤔 もようが ちがうよ。もういちど やってみよう！');
@@ -934,7 +1307,7 @@ async function checkClear(){
   } else if(s.type === 'music'){
     if(noteCount >= s.minNotes){
       setMessage('🎉 すてきな メロディ！ 🎉');
-      playFanfare(); celebrate();
+      await playFanfare(); celebrate();
       await sendBle('LED:'+PATTERN_HEART);
       return true;
     }
@@ -942,7 +1315,52 @@ async function checkClear(){
     return false;
   } else if(s.type === 'button'){
     setMessage('ボタンを おして ためしてね！ したの A / B ボタンを おそう');
-    return false; // checked via button callbacks
+    return false;
+  } else if(s.type === 'led_anim'){
+    if(ledAnimPatterns.length >= s.minPatterns){
+      setMessage('🎉 アニメーション できた！すごい！ 🎉');
+      await playFanfare(); celebrate();
+      return true;
+    }
+    setMessage(`🤔 もっと パターンを ならべよう！(あと ${s.minPatterns - ledAnimPatterns.length}こ)`);
+    return false;
+  } else if(s.type === 'money_change'){
+    if(moneyResult === s.correctChange){
+      setMessage('🎉 せいかい！おつりけいさん バッチリ！ 🎉');
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_CHECK);
+      return true;
+    }
+    if(moneyResult !== null){
+      setMessage('🤔 おつりが ちがうよ。もういちど けいさんしよう！');
+    } else {
+      setMessage('💰「かう」ブロックを つかって けいさんしよう！');
+    }
+    return false;
+  } else if(s.type === 'shop'){
+    if(shopProfit !== null && shopProfit > 0){
+      setMessage('🎉 りえきが でた！おみせやさん せいこう！ 🎉');
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    if(shopProfit !== null){
+      setMessage('🤔 りえきが でなかったよ。もっと たかく うろう！');
+    } else {
+      setMessage('💰「うる」ブロックで ねだんを きめよう！');
+    }
+    return false;
+  } else if(s.type === 'loop_art'){
+    if(loopArtCount >= s.minLeds){
+      setMessage('🎉 きれいな アート！すごい！ 🎉');
+      await playFanfare(); celebrate();
+      return true;
+    }
+    setMessage(`🤔 もっと LEDを つけよう！(あと ${s.minLeds - loopArtCount}こ)`);
+    return false;
+  } else if(s.type === 'free'){
+    setMessage('🌟 すばらしい！じゆうに たのしんでね！');
+    return true;
   }
 }
 
@@ -963,12 +1381,12 @@ async function runCode() {
     const fn = new Function(
       'moveForward','turnRight','turnLeft','doPlaySound','sleep',
       'doLedOn','doLedClear','doLedPattern','doPlayNote','doRest',
-      'doOnButtonA','doOnButtonB',
+      'doOnButtonA','doOnButtonB','doMoneyBuy','getMoneyChange','doMoneySell',
       `return (async()=>{\n${code}\n})()`
     );
     await fn(moveForward, turnRight, turnLeft, doPlaySound, sleep,
              doLedOn, doLedClear, doLedPattern, doPlayNote, doRest,
-             doOnButtonA, doOnButtonB);
+             doOnButtonA, doOnButtonB, doMoneyBuy, getMoneyChange, doMoneySell);
     await checkClear();
   } catch(e) {
     if(e !== 'wall') {
