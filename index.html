@@ -267,8 +267,8 @@ const PATTERN_CHECK = '00001,00010,10100,01000,00000';
 
 // === micro:bit BLE ===
 const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const UART_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // TX characteristic (write to micro:bit)
-const UART_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // RX characteristic (read from micro:bit)
+const UART_TX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write to micro:bit (RX on device side)
+const UART_RX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // read from micro:bit (TX on device side)
 
 let bleDevice = null;
 let uartTx = null;
@@ -315,18 +315,33 @@ async function connectMicrobit(){
     } catch(e){ console.log('UART RX not available', e); }
     bleConnected = true;
     updateBleStatus();
-    // Test: send a short command to verify UART works
+    // Test UART: try both write methods
     try {
-      const testData = new TextEncoder().encode('CLEAR\n');
-      await uartTx.writeValueWithoutResponse(testData);
-      console.log('BLE test send OK');
-      // Show heart as connection test
-      const heartCmd = new TextEncoder().encode('LED:01010,11111,11111,01110,00100\n');
-      // Send without chunking for short messages
-      await uartTx.writeValueWithoutResponse(heartCmd.slice(0, 20));
-      await new Promise(r => setTimeout(r, 50));
-      await uartTx.writeValueWithoutResponse(heartCmd.slice(20));
-    } catch(e) { console.log('BLE test failed', e); }
+      // Method 1: writeValueWithoutResponse
+      const t1 = new TextEncoder().encode('CLEAR\n');
+      await uartTx.writeValueWithoutResponse(t1);
+      console.log('writeValueWithoutResponse OK');
+    } catch(e) { console.log('writeValueWithoutResponse FAILED', e); }
+    try {
+      // Method 2: writeValue (with response)
+      const t2 = new TextEncoder().encode('CLEAR\n');
+      await uartTx.writeValue(t2);
+      console.log('writeValue OK');
+    } catch(e) { console.log('writeValue FAILED', e); }
+    // Try sending LED heart with writeValue
+    try {
+      // Short pattern that fits in 20 bytes
+      const t3 = new TextEncoder().encode('LED:01010,11111\n');
+      await uartTx.writeValue(t3);
+      console.log('LED test sent');
+      await new Promise(r => setTimeout(r, 200));
+      const t4 = new TextEncoder().encode('LED:01010,11111,11111,01110,00100\n');
+      for(let i=0; i<t4.length; i+=20){
+        await uartTx.writeValue(t4.slice(i, i+20));
+        await new Promise(r => setTimeout(r, 100));
+      }
+      console.log('LED heart sent');
+    } catch(e) { console.log('LED test FAILED', e); }
   } catch(e){
     console.log('BLE connect cancelled or failed', e);
   }
