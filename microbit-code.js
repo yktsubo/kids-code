@@ -45,8 +45,8 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () 
         let freq = parseFloat(parts[0])
         let dur = parseFloat(parts[1])
         if (freq > 0 && dur > 0) {
-            music.playTone(freq, dur)
-            music.rest(1)
+            pins.analogSetPitchPin(AnalogPin.P0)
+            pins.analogPitch(freq, dur)
         }
     } else if (line.includes("CLEAR")) {
         basic.clearScreen()
