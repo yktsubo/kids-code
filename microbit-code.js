@@ -1,5 +1,5 @@
 // micro:bit v2 用 受信プログラム
-// 音は pins.analogWritePin で直接PWM制御（musicライブラリ不使用）
+// 音はブラウザから再生。micro:bitはLED表示 + 音のビジュアライザー。
 bluetooth.startUartService()
 
 bluetooth.onBluetoothConnected(function () {
@@ -42,16 +42,21 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () 
             }
         }
     } else if (line.includes("TONE:")) {
+        // 音の高さに応じたLEDバー表示（ビジュアライザー）
         let toneData = line.replace("TONE:", "")
         let parts = toneData.split(":")
         let freq = parseFloat(parts[0])
-        let dur = parseFloat(parts[1])
-        if (freq > 0 && dur > 0) {
-            // 直接ピン制御で音を出す（musicライブラリ不使用）
-            pins.analogSetPeriod(AnalogPin.P0, 1000000 / freq)
-            pins.analogWritePin(AnalogPin.P0, 512)
-            basic.pause(dur)
-            pins.analogWritePin(AnalogPin.P0, 0)
+        basic.clearScreen()
+        let level = 0
+        if (freq <= 262) level = 1
+        else if (freq <= 330) level = 2
+        else if (freq <= 392) level = 3
+        else if (freq <= 523) level = 4
+        else level = 5
+        for (let row = 5 - level; row < 5; row++) {
+            for (let col = 1; col <= 3; col++) {
+                led.plot(col, row)
+            }
         }
     } else if (line.includes("CLEAR")) {
         basic.clearScreen()
