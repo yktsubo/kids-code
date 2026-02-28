@@ -289,7 +289,12 @@ async function connectMicrobit(){
   }
   try {
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'BBC micro:bit' }],
+      filters: [
+        { namePrefix: 'BBC micro:bit' },
+        { namePrefix: 'BBC Micro:bit' },
+        { namePrefix: 'BBC Micro:Bit' },
+        { services: [UART_SERVICE] }
+      ],
       optionalServices: [UART_SERVICE]
     });
     bleDevice.addEventListener('gattserverdisconnected', ()=>{
