@@ -1,7 +1,8 @@
 // micro:bit v2 用 受信プログラム
-// MakeCode (https://makecode.microbit.org/) の JavaScript モードに貼り付けてください
-
 bluetooth.startUartService()
+
+let currentFreq = 0
+let toneEndTime = 0
 
 bluetooth.onBluetoothConnected(function () {
     basic.showIcon(IconNames.Yes)
@@ -21,6 +22,15 @@ input.onButtonPressed(Button.A, function () {
 
 input.onButtonPressed(Button.B, function () {
     bluetooth.uartWriteString("BTN:B\n")
+})
+
+// Background loop to stop tones after duration
+basic.forever(function () {
+    if (currentFreq > 0 && input.runningTime() > toneEndTime) {
+        music.ringTone(0)
+        currentFreq = 0
+    }
+    basic.pause(20)
 })
 
 bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
@@ -48,12 +58,9 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () 
         let freq = parseFloat(parts[0])
         let dur = parseFloat(parts[1])
         if (freq > 0 && dur > 0) {
-            soundExpression.giggle.stop()
-            control.inBackground(function () {
-                music.ringTone(freq)
-                basic.pause(dur)
-                music.ringTone(0)
-            })
+            music.ringTone(freq)
+            currentFreq = freq
+            toneEndTime = input.runningTime() + dur
         }
     } else if (line.includes("CLEAR")) {
         basic.clearScreen()
