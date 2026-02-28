@@ -1,8 +1,6 @@
 // micro:bit v2 用 受信プログラム
+// 音はブラウザ側で再生。micro:bitはLED表示のみ。
 bluetooth.startUartService()
-
-let currentFreq = 0
-let toneEndTime = 0
 
 bluetooth.onBluetoothConnected(function () {
     basic.showIcon(IconNames.Yes)
@@ -22,15 +20,6 @@ input.onButtonPressed(Button.A, function () {
 
 input.onButtonPressed(Button.B, function () {
     bluetooth.uartWriteString("BTN:B\n")
-})
-
-// Background loop to stop tones after duration
-basic.forever(function () {
-    if (currentFreq > 0 && input.runningTime() > toneEndTime) {
-        music.ringTone(0)
-        currentFreq = 0
-    }
-    basic.pause(20)
 })
 
 bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
@@ -53,14 +42,22 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () 
             }
         }
     } else if (line.includes("TONE:")) {
+        // 音符に対応するLEDパターンを表示（音はブラウザで再生）
         let toneData = line.replace("TONE:", "")
         let parts = toneData.split(":")
         let freq = parseFloat(parts[0])
-        let dur = parseFloat(parts[1])
-        if (freq > 0 && dur > 0) {
-            music.ringTone(freq)
-            currentFreq = freq
-            toneEndTime = input.runningTime() + dur
+        // 周波数に応じてLEDの高さを変える（ビジュアライザー）
+        let level = 0
+        if (freq < 300) level = 1
+        else if (freq < 400) level = 2
+        else if (freq < 500) level = 3
+        else if (freq < 600) level = 4
+        else level = 5
+        basic.clearScreen()
+        for (let row = 5 - level; row < 5; row++) {
+            for (let col = 1; col < 4; col++) {
+                led.plot(col, row)
+            }
         }
     } else if (line.includes("CLEAR")) {
         basic.clearScreen()
