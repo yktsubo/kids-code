@@ -457,21 +457,17 @@ const stages = [
   },
   {
     name: 'ステージ9: おつりけいさん 💰',
-    hint: '100えんで 70えんの ものを かったら、おつりは いくら？「おかね」ブロックで けいさんしよう！',
+    hint: '▶じっこう で もんだいが でるよ！「こたえ」ブロックに すうじを いれて もういちど ▶じっこう！',
     start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
     walls: [],
-    type: 'money_change',
-    payAmount: 100,
-    itemPrice: 70,
-    correctChange: 30
+    type: 'money_quiz'
   },
   {
     name: 'ステージ10: おみせやさん 🏪',
-    hint: '💰 しいれねだんより たかく うって、りえきを だそう！（りえき＝うりねだん−しいれねだん）',
+    hint: '▶じっこう で しいれねだんが でるよ！「うりねだん」と「うる！」ブロックで うってみよう！',
     start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
     walls: [],
-    type: 'shop',
-    costPrice: 50
+    type: 'shop_game'
   },
   {
     name: 'ステージ11: くりかえしアート 🎨',
@@ -498,9 +494,34 @@ let stage6BSet = false;
 
 // Stage-specific state
 let ledAnimPatterns = [];  // stage 8
-let moneyResult = null;    // stage 9
-let shopProfit = null;     // stage 10
+let moneyResult = null;    // stage 9 (legacy)
+let shopProfit = null;     // stage 10 (legacy)
 let loopArtCount = 0;      // stage 11
+
+// Stage 9: Quiz state
+const QUIZ_PROBLEMS = [
+  { pay: 100, price: 70, answer: 30, item: '🍎 りんご' },
+  { pay: 50, price: 20, answer: 30, item: '🍌 バナナ' },
+  { pay: 80, price: 30, answer: 50, item: '🍰 ケーキ' },
+  { pay: 100, price: 40, answer: 60, item: '📕 ほん' },
+  { pay: 90, price: 50, answer: 40, item: '🧸 ぬいぐるみ' }
+];
+let quizSelected = [];     // 3 random problems
+let quizCurrent = 0;       // current problem index (0-2)
+let quizCorrect = 0;       // correct answer count
+let quizPhase = 'ready';   // 'ready' | 'question' | 'done'
+let quizLastResult = null;  // null | 'correct' | 'wrong'
+let quizLastCorrectAnswer = 0;
+
+// Stage 10: Shop game state
+const SHOP_COSTS = [30, 40, 50, 60, 70];
+let shopRound = 0;          // current round (0-2)
+let shopTotalProfit = 0;    // accumulated profit
+let shopCurrentCost = 0;    // current round's cost
+let shopPhase = 'ready';    // 'ready' | 'buying' | 'done'
+let shopLastResult = null;  // null | 'profit' | 'loss' | 'tooexpensive'
+let shopLastProfit = 0;
+let shopCosts = [];          // 3 random costs
 
 // === Canvas ===
 const canvas = document.getElementById('game-canvas');
@@ -638,62 +659,99 @@ function drawLedAnimStage(){
   }
 }
 
-function drawMoneyChangeStage(){
-  const s = stages[currentStage];
+function drawMoneyQuizStage(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#fffde7'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.font = '24px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
-  ctx.fillText('💰 おつりけいさん', 200, 40);
-  ctx.font = '50px serif';
-  ctx.fillText('🍎', 200, 110);
-  ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
-  ctx.fillText(`りんごは ${s.itemPrice}えん です`, 200, 160);
-  ctx.fillText(`${s.payAmount}えん はらったら、おつりは？`, 200, 195);
-  ctx.font = '60px serif';
-  ctx.fillText('🪙', 100, 280);
-  ctx.fillText('➡', 200, 280);
-  ctx.fillText('❓', 300, 280);
-  if(moneyResult !== null){
-    ctx.font = '22px sans-serif';
-    ctx.fillStyle = moneyResult === s.correctChange ? '#00b894' : '#e17055';
-    ctx.fillText(`こたえ: ${moneyResult}えん`, 200, 350);
-    if(moneyResult === s.correctChange){
-      ctx.fillText('🎉 せいかい！', 200, 385);
-    } else {
-      ctx.fillText('🤔 ちがうよ、もういちど！', 200, 385);
+  ctx.fillText('💰 おつりけいさん', 200, 35);
+
+  // Score
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+  ctx.fillText(`せいかい: ${quizCorrect} / 3`, 200, 60);
+
+  if(quizPhase === 'ready'){
+    ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
+    ctx.fillText('▶じっこう を おして もんだいスタート！', 200, 150);
+    ctx.font = '60px serif';
+    ctx.fillText('🪙❓', 200, 250);
+  } else if(quizPhase === 'question' && quizSelected[quizCurrent]){
+    const q = quizSelected[quizCurrent];
+    ctx.font = '16px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText(`もんだい ${quizCurrent+1} / 3`, 200, 85);
+    ctx.font = '44px serif';
+    ctx.fillText(q.item, 200, 140);
+    ctx.font = '20px sans-serif'; ctx.fillStyle = '#333';
+    ctx.fillText(`${q.pay}えんで ${q.price}えんの ものを かったよ`, 200, 185);
+    ctx.font = '22px sans-serif'; ctx.fillStyle = '#e17055';
+    ctx.fillText('おつりは いくら？', 200, 220);
+    ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+    ctx.fillText('「こたえ」ブロックに すうじを いれて ▶じっこう！', 200, 260);
+
+    if(quizLastResult === 'correct'){
+      ctx.font = '28px sans-serif'; ctx.fillStyle = '#00b894';
+      ctx.fillText('🎉 せいかい！', 200, 320);
+    } else if(quizLastResult === 'wrong'){
+      ctx.font = '22px sans-serif'; ctx.fillStyle = '#e17055';
+      ctx.fillText(`✕ ざんねん！こたえは ${quizLastCorrectAnswer}えん`, 200, 320);
     }
+  } else if(quizPhase === 'done'){
+    ctx.font = '28px sans-serif'; ctx.fillStyle = '#00b894';
+    ctx.fillText('🎉 3もん せいかい！クリア！', 200, 200);
+    ctx.font = '60px serif';
+    ctx.fillText('🏆', 200, 300);
   }
 }
 
-function drawShopStage(){
-  const s = stages[currentStage];
+function drawShopGameStage(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#e8f5e9'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.font = '24px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
-  ctx.fillText('🏪 おみせやさん', 200, 40);
-  ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
-  ctx.fillText(`しいれねだん: ${s.costPrice}えん`, 200, 80);
-  ctx.fillText('うりねだんを きめて、りえきを だそう！', 200, 110);
-  ctx.font = '50px serif';
-  ctx.fillText('🧸', 120, 190);
+  ctx.fillText('🏪 おみせやさん', 200, 35);
+
   ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
-  ctx.fillText(`しいれ: ${s.costPrice}えん`, 120, 230);
-  ctx.font = '50px serif';
-  ctx.fillText('🛒', 300, 190);
-  if(shopProfit !== null){
-    ctx.font = '22px sans-serif';
-    if(shopProfit > 0){
-      ctx.fillStyle = '#00b894';
-      ctx.fillText(`りえき: ${shopProfit}えん 💰`, 200, 300);
-      ctx.fillText('🎉 りえきが でた！クリア！', 200, 340);
-    } else if(shopProfit === 0){
-      ctx.fillStyle = '#f39c12';
-      ctx.fillText('りえき: 0えん（トントン）', 200, 300);
-      ctx.fillText('🤔 もうちょっと たかく うろう！', 200, 340);
+  ctx.fillText(`ごうけい りえき: ${shopTotalProfit}えん（もくひょう: 50えん いじょう）`, 200, 60);
+
+  if(shopPhase === 'ready'){
+    ctx.font = '18px sans-serif'; ctx.fillStyle = '#555';
+    ctx.fillText('▶じっこう で しいれ スタート！', 200, 150);
+    ctx.font = '60px serif';
+    ctx.fillText('🏪', 200, 250);
+    ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+    ctx.fillText('3かい とりひき して りえきを だそう！', 200, 310);
+  } else if(shopPhase === 'buying'){
+    ctx.font = '16px sans-serif'; ctx.fillStyle = '#999';
+    ctx.fillText(`とりひき ${shopRound+1} / 3`, 200, 85);
+    ctx.font = '44px serif';
+    ctx.fillText('🧸', 200, 150);
+    ctx.font = '22px sans-serif'; ctx.fillStyle = '#333';
+    ctx.fillText(`しいれねだん: ${shopCurrentCost}えん`, 200, 195);
+    ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+    ctx.fillText('「うりねだん」と「うる！」ブロックで ▶じっこう！', 200, 230);
+
+    if(shopLastResult === 'profit'){
+      ctx.font = '22px sans-serif'; ctx.fillStyle = '#00b894';
+      ctx.fillText(`💰 りえき: ${shopLastProfit}えん！`, 200, 290);
+    } else if(shopLastResult === 'loss'){
+      ctx.font = '22px sans-serif'; ctx.fillStyle = '#e17055';
+      ctx.fillText('😢 そんしちゃった！', 200, 290);
+    } else if(shopLastResult === 'tooexpensive'){
+      ctx.font = '22px sans-serif'; ctx.fillStyle = '#e17055';
+      ctx.fillText('😵 たかすぎて うれなかったよ！', 200, 290);
+    }
+  } else if(shopPhase === 'done'){
+    if(shopTotalProfit >= 50){
+      ctx.font = '28px sans-serif'; ctx.fillStyle = '#00b894';
+      ctx.fillText('🎉 おみせやさん だいせいこう！', 200, 180);
+      ctx.font = '22px sans-serif';
+      ctx.fillText(`ごうけい りえき: ${shopTotalProfit}えん`, 200, 220);
+      ctx.font = '60px serif';
+      ctx.fillText('🏆', 200, 310);
     } else {
-      ctx.fillStyle = '#e17055';
-      ctx.fillText(`そんしつ: ${shopProfit}えん 😢`, 200, 300);
-      ctx.fillText('🤔 しいれねだんより たかく うろう！', 200, 340);
+      ctx.font = '22px sans-serif'; ctx.fillStyle = '#e17055';
+      ctx.fillText(`ごうけい りえき: ${shopTotalProfit}えん`, 200, 180);
+      ctx.fillText('50えん いじょう ひつようだよ！', 200, 220);
+      ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+      ctx.fillText('リセットして もういちど やってみよう！', 200, 270);
     }
   }
 }
@@ -748,8 +806,8 @@ function render() {
   else if(s.type === 'music') drawMusicStage();
   else if(s.type === 'button') drawButtonStage();
   else if(s.type === 'led_anim') drawLedAnimStage();
-  else if(s.type === 'money_change') drawMoneyChangeStage();
-  else if(s.type === 'shop') drawShopStage();
+  else if(s.type === 'money_quiz') drawMoneyQuizStage();
+  else if(s.type === 'shop_game') drawShopGameStage();
   else if(s.type === 'loop_art') drawLoopArtStage();
   else if(s.type === 'free') drawFreeStage();
 }
@@ -897,6 +955,36 @@ Blockly.Blocks['money_sell'] = {
   }
 };
 
+// Stage 9: Answer block
+Blockly.Blocks['kotae_number'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('📝 こたえ')
+      .appendField(new Blockly.FieldNumber(30, 0, 999, 1), 'ANSWER')
+      .appendField('えん');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(45);
+  }
+};
+
+// Stage 10: Sell price block
+Blockly.Blocks['urine_number'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('🏷 うりねだん')
+      .appendField(new Blockly.FieldNumber(80, 1, 999, 1), 'PRICE')
+      .appendField('えん');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(45);
+  }
+};
+
+// Stage 10: Sell action block
+Blockly.Blocks['uru_block'] = {
+  init: function() {
+    this.appendDummyInput().appendField('🛒 うる！');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(45);
+  }
+};
+
 // === Code Generators ===
 const gen = javascript.javascriptGenerator;
 gen.forBlock['move_forward'] = function() { return 'await moveForward();\n'; };
@@ -952,6 +1040,17 @@ gen.forBlock['money_change'] = function() {
 gen.forBlock['money_sell'] = function(block) {
   const price = gen.valueToCode(block, 'SELL_PRICE', gen.ORDER_ATOMIC) || '0';
   return `await doMoneySell(${price});\n`;
+};
+gen.forBlock['kotae_number'] = function(block) {
+  const ans = block.getFieldValue('ANSWER');
+  return `await doKotae(${ans});\n`;
+};
+gen.forBlock['urine_number'] = function(block) {
+  const price = block.getFieldValue('PRICE');
+  return `await doSetUrine(${price});\n`;
+};
+gen.forBlock['uru_block'] = function() {
+  return `await doUru();\n`;
 };
 
 // === Toolbox per stage ===
@@ -1014,24 +1113,17 @@ function getToolboxForStage(idx){
         <block type="repeat_times"><field name="TIMES">3</field></block>
       </category>
     </xml>`;
-  } else if(s.type === 'money_change'){
+  } else if(s.type === 'money_quiz'){
     return `<xml>
-      <category name="💰 おかね" colour="#F9A825">
-        <block type="money_buy">
-          <field name="ITEM">りんご</field>
-          <value name="PRICE"><block type="money_value"><field name="AMOUNT">70</field></block></value>
-          <value name="PAY"><block type="money_value"><field name="AMOUNT">100</field></block></value>
-        </block>
-        <block type="money_value"><field name="AMOUNT">100</field></block>
+      <category name="📝 こたえ" colour="#F9A825">
+        <block type="kotae_number"><field name="ANSWER">30</field></block>
       </category>
     </xml>`;
-  } else if(s.type === 'shop'){
+  } else if(s.type === 'shop_game'){
     return `<xml>
-      <category name="💰 おかね" colour="#F9A825">
-        <block type="money_sell">
-          <value name="SELL_PRICE"><block type="money_value"><field name="AMOUNT">80</field></block></value>
-        </block>
-        <block type="money_value"><field name="AMOUNT">80</field></block>
+      <category name="🏪 おみせ" colour="#F9A825">
+        <block type="urine_number"><field name="PRICE">80</field></block>
+        <block type="uru_block"></block>
       </category>
     </xml>`;
   } else if(s.type === 'loop_art'){
@@ -1217,6 +1309,38 @@ async function doMoneySell(sellPrice) {
   await sleep(500);
 }
 
+// Stage 9: Quiz logic
+let pendingKotae = null;
+async function doKotae(answer) {
+  pendingKotae = answer;
+}
+
+// Stage 10: Shop game logic
+let pendingUrine = null;
+let pendingUru = false;
+async function doSetUrine(price) {
+  pendingUrine = price;
+}
+async function doUru() {
+  pendingUru = true;
+}
+
+// Number LED patterns for micro:bit
+const NUMBER_PATTERNS = {
+  1: '01100,00100,00100,00100,01110',
+  2: '11110,00001,01110,10000,11111',
+  3: '11110,00001,01110,00001,11110'
+};
+
+function shuffleAndPick(arr, n) {
+  const copy = [...arr];
+  for(let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
 function setMessage(msg) {
   document.getElementById('message-box').textContent = msg;
 }
@@ -1232,6 +1356,21 @@ function loadStage() {
   shopProfit = null;
   loopArtCount = 0;
   lastChange = 0;
+  quizSelected = [];
+  quizCurrent = 0;
+  quizCorrect = 0;
+  quizPhase = 'ready';
+  quizLastResult = null;
+  pendingKotae = null;
+  shopRound = 0;
+  shopTotalProfit = 0;
+  shopCurrentCost = 0;
+  shopPhase = 'ready';
+  shopLastResult = null;
+  shopLastProfit = 0;
+  shopCosts = [];
+  pendingUrine = null;
+  pendingUru = false;
   simClear();
   document.getElementById('stage-info').textContent = s.name;
   setMessage(s.hint);
@@ -1251,6 +1390,21 @@ function resetStage() {
   shopProfit = null;
   loopArtCount = 0;
   lastChange = 0;
+  quizSelected = [];
+  quizCurrent = 0;
+  quizCorrect = 0;
+  quizPhase = 'ready';
+  quizLastResult = null;
+  pendingKotae = null;
+  shopRound = 0;
+  shopTotalProfit = 0;
+  shopCurrentCost = 0;
+  shopPhase = 'ready';
+  shopLastResult = null;
+  shopLastProfit = 0;
+  shopCosts = [];
+  pendingUrine = null;
+  pendingUru = false;
   simClear();
   setMessage(s.hint);
   render();
@@ -1324,30 +1478,20 @@ async function checkClear(){
     }
     setMessage(`🤔 もっと パターンを ならべよう！(あと ${s.minPatterns - ledAnimPatterns.length}こ)`);
     return false;
-  } else if(s.type === 'money_change'){
-    if(moneyResult === s.correctChange){
-      setMessage('🎉 せいかい！おつりけいさん バッチリ！ 🎉');
-      await playFanfare(); celebrate();
-      await sendBle('LED:'+PATTERN_CHECK);
-      return true;
-    }
-    if(moneyResult !== null){
-      setMessage('🤔 おつりが ちがうよ。もういちど けいさんしよう！');
-    } else {
-      setMessage('💰「かう」ブロックを つかって けいさんしよう！');
-    }
-    return false;
-  } else if(s.type === 'shop'){
-    if(shopProfit !== null && shopProfit > 0){
-      setMessage('🎉 りえきが でた！おみせやさん せいこう！ 🎉');
+  } else if(s.type === 'money_quiz'){
+    if(quizPhase === 'done'){
+      setMessage('🎉 3もん せいかい！おつりけいさん マスター！ 🎉');
       await playFanfare(); celebrate();
       await sendBle('LED:'+PATTERN_HEART);
       return true;
     }
-    if(shopProfit !== null){
-      setMessage('🤔 りえきが でなかったよ。もっと たかく うろう！');
-    } else {
-      setMessage('💰「うる」ブロックで ねだんを きめよう！');
+    return false;
+  } else if(s.type === 'shop_game'){
+    if(shopPhase === 'done' && shopTotalProfit >= 50){
+      setMessage('🎉 おみせやさん だいせいこう！ 🎉');
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
     }
     return false;
   } else if(s.type === 'loop_art'){
@@ -1367,6 +1511,175 @@ async function checkClear(){
 async function runCode() {
   if(animating) return;
   animating = true;
+  const s = stages[currentStage];
+
+  // Special handling for quiz stage (stage 9)
+  if(s.type === 'money_quiz'){
+    if(quizPhase === 'ready'){
+      // Start quiz: pick 3 random problems
+      quizSelected = shuffleAndPick(QUIZ_PROBLEMS, 3);
+      quizCurrent = 0;
+      quizCorrect = 0;
+      quizPhase = 'question';
+      quizLastResult = null;
+      await sendBle('LED:'+NUMBER_PATTERNS[1]);
+      setMessage(`もんだい1: こたえを 「こたえ」ブロックに いれて ▶じっこう！`);
+      render();
+      animating = false;
+      return;
+    } else if(quizPhase === 'question'){
+      // Check answer from blocks
+      pendingKotae = null;
+      const code = gen.workspaceToCode(workspace);
+      if(!code.trim()){
+        setMessage('「こたえ」ブロックを おいてね！');
+        animating = false; return;
+      }
+      try {
+        const fn = new Function('doKotae', `return (async()=>{\n${code}\n})()`);
+        await fn(doKotae);
+      } catch(e) { console.error(e); }
+
+      if(pendingKotae === null){
+        setMessage('「こたえ」ブロックを おいてね！');
+        animating = false; return;
+      }
+
+      const q = quizSelected[quizCurrent];
+      if(pendingKotae === q.answer){
+        quizCorrect++;
+        quizLastResult = 'correct';
+        await sendBle('LED:'+PATTERN_HEART);
+        playTone(523, 0.2); await sleep(200); playTone(784, 0.3);
+        setMessage('🎉 せいかい！');
+      } else {
+        quizLastResult = 'wrong';
+        quizLastCorrectAnswer = q.answer;
+        await sendBle('LED:'+PATTERN_X);
+        playFailSound();
+        setMessage(`✕ ざんねん！こたえは ${q.answer}えん だよ`);
+      }
+      render();
+      await sleep(1500);
+
+      quizCurrent++;
+      if(quizCorrect >= 3){
+        quizPhase = 'done';
+        render();
+        await checkClear();
+        animating = false;
+        return;
+      }
+      if(quizCurrent >= 3){
+        if(quizCorrect < 3){
+          setMessage(`${quizCorrect}もん せいかい。3もん せいかい で クリア！リセットして もういちど！`);
+          quizPhase = 'ready';
+          render();
+          animating = false;
+          return;
+        }
+      }
+      // Next question
+      quizLastResult = null;
+      quizPhase = 'question';
+      const num = quizCurrent + 1;
+      if(NUMBER_PATTERNS[num]) await sendBle('LED:'+NUMBER_PATTERNS[num]);
+      setMessage(`もんだい${num}: こたえを いれて ▶じっこう！`);
+      render();
+      animating = false;
+      return;
+    } else if(quizPhase === 'done'){
+      animating = false;
+      return;
+    }
+  }
+
+  // Special handling for shop game stage (stage 10)
+  if(s.type === 'shop_game'){
+    if(shopPhase === 'ready'){
+      // Start: pick 3 random costs
+      shopCosts = shuffleAndPick(SHOP_COSTS, 3);
+      shopRound = 0;
+      shopTotalProfit = 0;
+      shopPhase = 'buying';
+      shopCurrentCost = shopCosts[0];
+      shopLastResult = null;
+      await sendBle('LED:'+NUMBER_PATTERNS[1]);
+      setMessage(`しいれねだん: ${shopCurrentCost}えん。うりねだんを きめて ▶じっこう！`);
+      render();
+      animating = false;
+      return;
+    } else if(shopPhase === 'buying'){
+      pendingUrine = null;
+      pendingUru = false;
+      const code = gen.workspaceToCode(workspace);
+      if(!code.trim()){
+        setMessage('「うりねだん」と「うる！」ブロックを おいてね！');
+        animating = false; return;
+      }
+      try {
+        const fn = new Function('doSetUrine','doUru', `return (async()=>{\n${code}\n})()`);
+        await fn(doSetUrine, doUru);
+      } catch(e) { console.error(e); }
+
+      if(pendingUrine === null || !pendingUru){
+        setMessage('「うりねだん」と「うる！」ブロックを おいてね！');
+        animating = false; return;
+      }
+
+      const sellPrice = pendingUrine;
+      const cost = shopCurrentCost;
+
+      if(sellPrice >= cost * 3){
+        // Too expensive
+        shopLastResult = 'tooexpensive';
+        await sendBle('LED:'+PATTERN_X);
+        playFailSound();
+        setMessage('😵 たかすぎて うれなかったよ！');
+      } else if(sellPrice > cost){
+        const profit = sellPrice - cost;
+        shopTotalProfit += profit;
+        shopLastProfit = profit;
+        shopLastResult = 'profit';
+        await sendBle('LED:'+PATTERN_HEART);
+        playTone(523, 0.2); await sleep(200); playTone(784, 0.3);
+        setMessage(`💰 りえき: ${profit}えん！`);
+      } else {
+        shopLastResult = 'loss';
+        await sendBle('LED:'+PATTERN_X);
+        playFailSound();
+        setMessage('😢 そんしちゃった！');
+      }
+      render();
+      await sleep(1500);
+
+      shopRound++;
+      if(shopRound >= 3){
+        shopPhase = 'done';
+        render();
+        await checkClear();
+        if(shopTotalProfit < 50){
+          setMessage(`ごうけい ${shopTotalProfit}えん。50えん いじょう ひつよう！リセットして もういちど！`);
+        }
+        animating = false;
+        return;
+      }
+      // Next round
+      shopCurrentCost = shopCosts[shopRound];
+      shopLastResult = null;
+      const num = shopRound + 1;
+      if(NUMBER_PATTERNS[num]) await sendBle('LED:'+NUMBER_PATTERNS[num]);
+      setMessage(`とりひき${num}: しいれねだん ${shopCurrentCost}えん。うりねだんを きめて ▶じっこう！`);
+      render();
+      animating = false;
+      return;
+    } else if(shopPhase === 'done'){
+      animating = false;
+      return;
+    }
+  }
+
+  // Standard stages - reset and run
   resetStage();
   await sleep(300);
 
