@@ -301,7 +301,20 @@ async function connectMicrobit(){
       bleConnected = false; uartTx = null; updateBleStatus();
     });
     const server = await bleDevice.gatt.connect();
+    // Debug: list all services
+    const services = await server.getPrimaryServices();
+    console.log('Available services:', services.map(s => s.uuid));
     const service = await server.getPrimaryService(UART_SERVICE);
+    // Debug: list all characteristics
+    const chars = await service.getCharacteristics();
+    for(const c of chars) {
+      console.log('Characteristic:', c.uuid, 'properties:', JSON.stringify({
+        read: c.properties.read,
+        write: c.properties.write,
+        writeWithoutResponse: c.properties.writeWithoutResponse,
+        notify: c.properties.notify
+      }));
+    }
     uartTx = await service.getCharacteristic(UART_TX);
     // Listen for button presses from micro:bit
     try {
