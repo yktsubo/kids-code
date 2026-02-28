@@ -46,6 +46,7 @@ bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () 
         let dur = parseFloat(parts[1])
         if (freq > 0 && dur > 0) {
             music.playTone(freq, dur)
+            music.rest(1)
         }
     } else if (line.includes("CLEAR")) {
         basic.clearScreen()
