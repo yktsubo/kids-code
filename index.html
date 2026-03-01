@@ -221,6 +221,36 @@ body {
       <div id="counter-status" style="font-size:18px; min-height:30px; margin-bottom:15px; color:#888;"></div>
       <p style="font-size:14px; color:#999;">ボタンA = +1 ／ ボタンB = -1<br>したの シミュレーターの ボタンを つかってね！</p>
     </div>
+    <div id="okozukai-panel" style="display:none; flex:1; background:rgba(255,255,255,0.95); border:3px solid #f39c12; border-radius:12px; padding:20px; overflow-y:auto;">
+      <h2 style="color:#f39c12; margin-bottom:10px; text-align:center;">📒 おこづかいちょう</h2>
+      <p style="font-size:14px; color:#555; margin-bottom:10px; text-align:center;">ブロックで しゅうにゅう と しゅっぴ を きろくしよう！</p>
+      <div id="okozukai-ledger" style="border:2px solid #f39c12; border-radius:8px; padding:10px; margin-bottom:10px; min-height:120px; background:#fffde7; font-size:16px;"></div>
+      <div id="okozukai-balance" style="font-size:24px; font-weight:bold; text-align:center; color:#333;"></div>
+    </div>
+    <div id="shopping-panel" style="display:none; flex:1; background:rgba(255,255,255,0.95); border:3px solid #e84393; border-radius:12px; padding:20px; overflow-y:auto;">
+      <h2 style="color:#e84393; margin-bottom:10px; text-align:center;">🛒 おかいもの</h2>
+      <div id="shopping-budget" style="font-size:22px; text-align:center; color:#e17055; margin-bottom:10px;"></div>
+      <div id="shopping-items" style="font-size:18px; margin-bottom:10px;"></div>
+      <div id="shopping-cart" style="border:2px solid #e84393; border-radius:8px; padding:10px; min-height:80px; background:#fff0f6; font-size:16px; margin-bottom:10px;"></div>
+      <div id="shopping-result" style="font-size:20px; text-align:center; font-weight:bold;"></div>
+    </div>
+    <div id="temperature-panel" style="display:none; flex:1; background:rgba(255,255,255,0.95); border:3px solid #00b894; border-radius:12px; padding:20px; text-align:center; overflow-y:auto;">
+      <h2 style="color:#00b894; margin-bottom:10px;">🌡 おんどけい</h2>
+      <div id="temp-display" style="font-size:48px; font-weight:bold; color:#333; margin:10px 0;"></div>
+      <div id="temp-question" style="font-size:20px; color:#555; margin-bottom:10px;"></div>
+      <div id="temp-score" style="font-size:18px; color:#888; margin-bottom:10px;">せいかい: 0 / 3</div>
+      <div id="temp-result" style="font-size:22px; min-height:40px;"></div>
+    </div>
+    <div id="aichat-panel" style="display:none; flex:1; background:rgba(255,255,255,0.95); border:3px solid #6c5ce7; border-radius:12px; padding:20px; overflow-y:auto;">
+      <h2 style="color:#6c5ce7; margin-bottom:10px; text-align:center;">🤖 AIに きいてみよう</h2>
+      <p style="font-size:14px; color:#555; margin-bottom:10px; text-align:center;">「どうぶつ」「たべもの」「いろ」について しつもんしよう！</p>
+      <div id="aichat-log" style="border:2px solid #6c5ce7; border-radius:8px; padding:10px; min-height:200px; max-height:300px; overflow-y:auto; background:#f8f7ff; margin-bottom:10px; font-size:16px;"></div>
+      <div id="aichat-categories" style="font-size:14px; color:#888; margin-bottom:8px; text-align:center;"></div>
+      <div style="display:flex; gap:8px;">
+        <input id="aichat-input" type="text" placeholder="しつもんを いれてね..." style="flex:1; padding:10px; font-size:16px; border:2px solid #6c5ce7; border-radius:12px; outline:none;" onkeydown="if(event.key==='Enter')aiChatSend()">
+        <button onclick="aiChatSend()" style="padding:10px 20px; font-size:18px; background:#6c5ce7; color:#fff; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">おくる</button>
+      </div>
+    </div>
     <div id="buttons">
       <button id="btn-prev" onclick="prevStage()">⬅ まえ</button>
       <button id="btn-run" onclick="runCode()">▶ じっこう！</button>
@@ -526,6 +556,61 @@ const stages = [
     walls: [],
     type: 'counter',
     counterTarget: 10
+  },
+  {
+    name: 'ステージ16: しんごう 🚦',
+    hint: '🚦 「もし あか なら みぎをむく」のように、しんごうの ルールを つくろう！',
+    start: {x:0, y:1, dir:0},
+    goal: {x:2, y:1},
+    walls: [],
+    type: 'signal',
+    signals: [{x:1,y:1,color:'red'},{x:1,y:0,color:'blue'}]
+  },
+  {
+    name: 'ステージ17: ポイントあつめ ⭐',
+    hint: '⭐ コインを 3こ いじょう あつめて ゴールを めざそう！',
+    start: {x:0, y:0, dir:0},
+    goal: {x:4, y:4},
+    walls: [],
+    type: 'coins',
+    coins: [[1,1],[2,2],[3,3],[1,3],[3,1]],
+    targetCoins: 3
+  },
+  {
+    name: 'ステージ18: おこづかいちょう 📒',
+    hint: '📒「おこづかい500えん」「えんぴつ100えん つかった」で きろくして、「のこりは？」で けいさんしよう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'okozukai',
+    targetBalance: 350
+  },
+  {
+    name: 'ステージ19: おかいもの 🛒',
+    hint: '🛒 よさん300えんで「かう」ブロックを つかって 3つ いじょう かおう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'shopping',
+    budget: 300,
+    shopItems: [
+      {name:'りんご', emoji:'🍎', price:80},
+      {name:'パン', emoji:'🍞', price:120},
+      {name:'ジュース', emoji:'🧃', price:100},
+      {name:'おかし', emoji:'🍪', price:60}
+    ]
+  },
+  {
+    name: 'ステージ20: おんどけい 🌡',
+    hint: '🌡 「もし 30ど いじょう なら Tシャツを きる」のように、おんどに あった ふくを えらぼう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'temperature'
+  },
+  {
+    name: 'ステージ21: AIに きいてみよう 🤖',
+    hint: '🤖 「どうぶつ」「たべもの」「いろ」について しつもんして 3カテゴリ クリアしよう！',
+    start: {x:0,y:0,dir:0}, goal: {x:0,y:0},
+    walls: [],
+    type: 'ai_chat'
   }
 ];
 let currentStage = 0;
@@ -549,6 +634,33 @@ let jankenPlaying = false;
 let counterValue = 0;
 let counterTarget = 10;
 let counterCleared = false;
+
+// Stage 16: Traffic
+let trafficRules = [];
+let trafficIndex = 0;
+
+// Stage 17: Coins
+let collectedCoins = [];
+let coinPoints = 0;
+
+// Stage 18: Okozukai
+let okozukaiEntries = [];
+let okozukaiBalance = 0;
+let okozukaiChecked = false;
+
+// Stage 19: Shopping (new)
+let shoppingCart = [];
+let shoppingRemaining = 0;
+
+// Stage 20: Temperature
+let tempRound = 0;
+let tempCorrect = 0;
+let tempCurrent = 0;
+let tempRules = [];
+let tempClothes = '';
+
+// Stage 21: AI Chat
+let aiChatCategories = new Set();
 
 // Stage 9: Quiz state
 const QUIZ_PROBLEMS = [
@@ -917,6 +1029,162 @@ function drawCounterStage(){
   }
 }
 
+function drawSignalStage(){
+  const s = stages[currentStage];
+  drawGrid();
+  // Draw signals
+  if(s.signals) s.signals.forEach(sig => {
+    ctx.fillStyle = sig.color === 'red' ? 'rgba(255,80,80,0.5)' : 'rgba(80,80,255,0.5)';
+    ctx.fillRect(sig.x*CELL, sig.y*CELL, CELL, CELL);
+    ctx.font = '40px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(sig.color === 'red' ? '🔴' : '🔵', sig.x*CELL+CELL/2, sig.y*CELL+CELL/2);
+  });
+  // Goal
+  const g = s.goal;
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+  ctx.fillRect(g.x*CELL, g.y*CELL, CELL, CELL);
+  ctx.font = '50px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('⭐', g.x*CELL+CELL/2, g.y*CELL+CELL/2);
+  // Cat
+  const px = cat.x * CELL + CELL/2, py = cat.y * CELL + CELL/2;
+  ctx.save(); ctx.translate(px, py); ctx.rotate(dirAngle[cat.dir]);
+  ctx.font = '48px serif'; ctx.fillText('🐱', 0, 0);
+  ctx.font = '20px serif'; ctx.fillText('▶', 28, 0);
+  ctx.restore();
+}
+
+function drawCoinsStage(){
+  const s = stages[currentStage];
+  drawGrid();
+  // Draw remaining coins
+  if(s.coins) s.coins.forEach(c => {
+    if(!collectedCoins.some(cc => cc[0]===c[0] && cc[1]===c[1])){
+      ctx.font = '40px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('⭐', c[0]*CELL+CELL/2, c[1]*CELL+CELL/2);
+    }
+  });
+  // Goal
+  const g = s.goal;
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+  ctx.fillRect(g.x*CELL, g.y*CELL, CELL, CELL);
+  ctx.font = '50px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🏁', g.x*CELL+CELL/2, g.y*CELL+CELL/2);
+  // Points display
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, canvas.width, 35);
+  ctx.font = '20px sans-serif'; ctx.fillStyle = '#feca57'; ctx.textAlign = 'center';
+  ctx.fillText(`⭐ ポイント: ${coinPoints} / ${s.targetCoins}`, canvas.width/2, 25);
+  // Cat
+  const px = cat.x * CELL + CELL/2, py = cat.y * CELL + CELL/2;
+  ctx.save(); ctx.translate(px, py); ctx.rotate(dirAngle[cat.dir]);
+  ctx.font = '48px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🐱', 0, 0);
+  ctx.font = '20px serif'; ctx.fillText('▶', 28, 0);
+  ctx.restore();
+}
+
+function drawOkozukaiStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#fffde7'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('📒 おこづかいちょう', 200, 35);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#888';
+  ctx.fillText('れい: おこづかい500えん', 200, 65);
+  ctx.fillText('えんぴつ100えん、けしゴム50えん', 200, 85);
+  ctx.fillText('→ のこり 350えん', 200, 105);
+  // Show ledger
+  let y = 140;
+  ctx.textAlign = 'left'; ctx.font = '16px sans-serif';
+  okozukaiEntries.forEach(e => {
+    ctx.fillStyle = e.type === 'income' ? '#00b894' : '#e17055';
+    const sign = e.type === 'income' ? '+' : '-';
+    const label = e.type === 'income' ? 'しゅうにゅう' : `しゅっぴ(${e.item})`;
+    ctx.fillText(`${sign}${e.amount}えん  ${label}`, 40, y);
+    y += 25;
+  });
+  if(okozukaiChecked){
+    ctx.textAlign = 'center'; ctx.font = '28px sans-serif';
+    ctx.fillStyle = '#333';
+    ctx.fillText(`のこり: ${okozukaiBalance}えん`, 200, y + 30);
+  }
+}
+
+function drawShoppingStage(){
+  const s = stages[currentStage];
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#fff0f6'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('🛒 おかいもの', 200, 35);
+  ctx.font = '20px sans-serif'; ctx.fillStyle = '#e17055';
+  ctx.fillText(`よさん: ${s.budget}えん ／ のこり: ${shoppingRemaining}えん`, 200, 65);
+  // Items list
+  ctx.textAlign = 'left'; ctx.font = '18px sans-serif'; ctx.fillStyle = '#333';
+  let y = 100;
+  s.shopItems.forEach(item => {
+    ctx.fillText(`${item.emoji} ${item.name} … ${item.price}えん`, 40, y);
+    y += 30;
+  });
+  // Cart
+  if(shoppingCart.length > 0){
+    ctx.textAlign = 'center'; ctx.font = '18px sans-serif'; ctx.fillStyle = '#e84393';
+    ctx.fillText('🧺 かったもの:', 200, y + 20);
+    y += 45;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#333';
+    shoppingCart.forEach(item => {
+      const info = s.shopItems.find(i => i.name === item);
+      ctx.fillText(`${info ? info.emoji : '📦'} ${item} (${info ? info.price : '?'}えん)`, 60, y);
+      y += 25;
+    });
+  }
+}
+
+function drawTemperatureStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const gradient = ctx.createLinearGradient(0,0,400,400);
+  gradient.addColorStop(0,'#74b9ff'); gradient.addColorStop(1,'#fd79a8');
+  ctx.fillStyle = gradient; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('🌡 おんどけい', 200, 40);
+  ctx.font = '18px sans-serif'; ctx.fillStyle = '#fff';
+  ctx.fillText(`せいかい: ${tempCorrect} / 3`, 200, 70);
+  if(tempCurrent > 0){
+    ctx.font = '60px sans-serif'; ctx.fillStyle = '#fff';
+    ctx.fillText(`${tempCurrent}℃`, 200, 170);
+    ctx.font = '22px sans-serif';
+    const emoji = tempCurrent >= 30 ? '☀🥵' : tempCurrent >= 20 ? '🌤😊' : '❄🥶';
+    ctx.fillText(emoji, 200, 220);
+    ctx.font = '16px sans-serif'; ctx.fillStyle = '#ffe';
+    ctx.fillText('ブロックで ふくを えらんで ▶じっこう！', 200, 270);
+    if(tempClothes){
+      ctx.font = '22px sans-serif'; ctx.fillStyle = '#fff';
+      const cname = tempClothes === 'tshirt' ? '👕 Tシャツ' : tempClothes === 'coat' ? '🧥 コート' : '🧤 ジャケット';
+      ctx.fillText(`えらんだ: ${cname}`, 200, 320);
+    }
+  } else {
+    ctx.font = '60px serif'; ctx.fillStyle = '#fff';
+    ctx.fillText('🌡❓', 200, 200);
+    ctx.font = '18px sans-serif';
+    ctx.fillText('▶じっこう で おんどが でるよ！', 200, 280);
+  }
+}
+
+function drawAiChatStage(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const gradient = ctx.createLinearGradient(0,0,400,400);
+  gradient.addColorStop(0,'#a29bfe'); gradient.addColorStop(1,'#6c5ce7');
+  ctx.fillStyle = gradient; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font = '28px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText('🤖 AIに きいてみよう', 200, 50);
+  ctx.font = '60px serif';
+  ctx.fillText('🤖💬', 200, 160);
+  ctx.font = '18px sans-serif'; ctx.fillStyle = '#ddd';
+  ctx.fillText('ひだりの チャットで しつもんしよう！', 200, 240);
+  ctx.font = '16px sans-serif'; ctx.fillStyle = '#ffe';
+  const cats = ['どうぶつ','たべもの','いろ'];
+  const done = cats.map(c => aiChatCategories.has(c) ? `✅${c}` : `⬜${c}`);
+  ctx.fillText(done.join('  '), 200, 300);
+}
+
 function render() {
   const s = stages[currentStage];
   if(s.type === 'cat') drawCatStage();
@@ -931,6 +1199,12 @@ function render() {
   else if(s.type === 'maze') drawMazeStage();
   else if(s.type === 'janken') drawJankenStage();
   else if(s.type === 'counter') drawCounterStage();
+  else if(s.type === 'signal') drawSignalStage();
+  else if(s.type === 'coins') drawCoinsStage();
+  else if(s.type === 'okozukai') drawOkozukaiStage();
+  else if(s.type === 'shopping') drawShoppingStage();
+  else if(s.type === 'temperature') drawTemperatureStage();
+  else if(s.type === 'ai_chat') drawAiChatStage();
 }
 
 // === Blockly Blocks ===
@@ -1106,6 +1380,75 @@ Blockly.Blocks['uru_block'] = {
   }
 };
 
+// Stage 16: Traffic signal conditional block
+Blockly.Blocks['if_signal_color'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('🚦 もし')
+      .appendField(new Blockly.FieldDropdown([['あか','red'],['あお','blue']]), 'COLOR')
+      .appendField('なら');
+    this.appendStatementInput('DO');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(20);
+  }
+};
+
+// Stage 18: Okozukai blocks
+Blockly.Blocks['okozukai'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('💰 おこづかい')
+      .appendField(new Blockly.FieldNumber(500, 0, 9999, 1), 'AMOUNT')
+      .appendField('えん');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(50);
+  }
+};
+Blockly.Blocks['tsukatta'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField(new Blockly.FieldDropdown([['えんぴつ','えんぴつ'],['けしゴム','けしゴム'],['ノート','ノート'],['おかし','おかし'],['ジュース','ジュース']]), 'ITEM')
+      .appendField(new Blockly.FieldNumber(100, 0, 9999, 1), 'AMOUNT')
+      .appendField('えん つかった');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(50);
+  }
+};
+Blockly.Blocks['nokori_wa'] = {
+  init: function() {
+    this.appendDummyInput().appendField('📊 のこりは？');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(50);
+  }
+};
+
+// Stage 19: Shopping block
+Blockly.Blocks['kau_item'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('🛒 かう')
+      .appendField(new Blockly.FieldDropdown([['🍎 りんご','りんご'],['🍞 パン','パン'],['🧃 ジュース','ジュース'],['🍪 おかし','おかし']]), 'ITEM');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(330);
+  }
+};
+
+// Stage 20: Temperature blocks
+Blockly.Blocks['if_temp_above'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('🌡 もし')
+      .appendField(new Blockly.FieldNumber(30, 0, 50, 1), 'TEMP')
+      .appendField('ど いじょう なら');
+    this.appendStatementInput('DO');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(160);
+  }
+};
+Blockly.Blocks['kiru'] = {
+  init: function() {
+    this.appendDummyInput()
+      .appendField('👕')
+      .appendField(new Blockly.FieldDropdown([['Tシャツ','tshirt'],['ジャケット','jacket'],['コート','coat']]), 'CLOTHES')
+      .appendField('を きる');
+    this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(160);
+  }
+};
+
 // === Code Generators ===
 const gen = javascript.javascriptGenerator;
 gen.forBlock['move_forward'] = function() { return 'await moveForward();\n'; };
@@ -1172,6 +1515,31 @@ gen.forBlock['urine_number'] = function(block) {
 };
 gen.forBlock['uru_block'] = function() {
   return `await doUru();\n`;
+};
+gen.forBlock['if_signal_color'] = function(block) {
+  const color = block.getFieldValue('COLOR');
+  const body = gen.statementToCode(block, 'DO');
+  return `await doIfSignalColor("${color}", async()=>{\n${body}});\n`;
+};
+gen.forBlock['okozukai'] = function(block) {
+  return `await doOkozukai(${block.getFieldValue('AMOUNT')});\n`;
+};
+gen.forBlock['tsukatta'] = function(block) {
+  return `await doTsukatta(${block.getFieldValue('AMOUNT')}, "${block.getFieldValue('ITEM')}");\n`;
+};
+gen.forBlock['nokori_wa'] = function() {
+  return `await doNokoriWa();\n`;
+};
+gen.forBlock['kau_item'] = function(block) {
+  return `await doKauItem("${block.getFieldValue('ITEM')}");\n`;
+};
+gen.forBlock['if_temp_above'] = function(block) {
+  const temp = block.getFieldValue('TEMP');
+  const body = gen.statementToCode(block, 'DO');
+  return `await doIfTempAbove(${temp}, async()=>{\n${body}});\n`;
+};
+gen.forBlock['kiru'] = function(block) {
+  return `await doKiru("${block.getFieldValue('CLOTHES')}");\n`;
 };
 
 // === Toolbox per stage ===
@@ -1301,9 +1669,51 @@ function getToolboxForStage(idx){
         <block type="repeat_times"><field name="TIMES">3</field></block>
       </category>
     </xml>`;
-  } else if(s.type === 'janken' || s.type === 'counter'){
-    // No blocks for game stages
+  } else if(s.type === 'janken' || s.type === 'counter' || s.type === 'ai_chat'){
     return `<xml></xml>`;
+  } else if(s.type === 'signal'){
+    return `<xml>
+      <category name="🚦 しんごう" colour="#FF5722">
+        <block type="if_signal_color"></block>
+      </category>
+      <category name="🚶 うごき" colour="#4CAF50">
+        <block type="move_forward"></block>
+        <block type="turn_right"></block>
+        <block type="turn_left"></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'coins'){
+    return `<xml>
+      <category name="🚶 うごき" colour="#4CAF50">
+        <block type="move_forward"></block>
+        <block type="turn_right"></block>
+        <block type="turn_left"></block>
+      </category>
+      <category name="🔁 くりかえし" colour="#FF9800">
+        <block type="repeat_times"><field name="TIMES">3</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'okozukai'){
+    return `<xml>
+      <category name="📒 おこづかい" colour="#F9A825">
+        <block type="okozukai"><field name="AMOUNT">500</field></block>
+        <block type="tsukatta"><field name="AMOUNT">100</field><field name="ITEM">えんぴつ</field></block>
+        <block type="nokori_wa"></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'shopping'){
+    return `<xml>
+      <category name="🛒 おかいもの" colour="#E91E63">
+        <block type="kau_item"><field name="ITEM">りんご</field></block>
+      </category>
+    </xml>`;
+  } else if(s.type === 'temperature'){
+    return `<xml>
+      <category name="🌡 おんど" colour="#009688">
+        <block type="if_temp_above"><field name="TEMP">30</field></block>
+        <block type="kiru"><field name="CLOTHES">tshirt</field></block>
+      </category>
+    </xml>`;
   }
 }
 
@@ -1461,6 +1871,216 @@ async function doSetUrine(price) {
 }
 async function doUru() {
   pendingUru = true;
+}
+
+// Stage 16: Signal runtime
+async function doIfSignalColor(color, callback) {
+  const s = stages[currentStage];
+  if(s.type !== 'signal') return;
+  
+  // Check current position for signal
+  const signal = s.signals.find(sig => sig.x === cat.x && sig.y === cat.y);
+  if(!signal) return; // No signal at current position
+  
+  // Show signal on micro:bit
+  if(signal.color === 'red') {
+    await sendBle('LED:11111,10001,10101,10001,11111');
+  } else {
+    await sendBle('LED:00100,01110,11111,01110,00100');
+  }
+  
+  render();
+  await sleep(300);
+  
+  if(color === signal.color) {
+    setMessage(`🚦 ${signal.color === 'red' ? '🔴 あか' : '🔵 あお'}のルール じっこう！`);
+    await callback();
+  }
+  
+  render();
+  await sleep(300);
+}
+
+// Stage 17: Coin collection - override moveForward to check coins
+const originalMoveForward = moveForward;
+
+// Stage 18: Okozukai runtime
+async function doOkozukai(amount) {
+  okozukaiBalance += amount;
+  okozukaiEntries.push({type:'income', amount, item:'おこづかい'});
+  playTone(523, 0.2);
+  updateOkozukaiUI();
+  render();
+  await sleep(400);
+}
+async function doTsukatta(amount, item) {
+  okozukaiBalance -= amount;
+  okozukaiEntries.push({type:'expense', amount, item});
+  playTone(330, 0.2);
+  updateOkozukaiUI();
+  render();
+  await sleep(400);
+}
+async function doNokoriWa() {
+  okozukaiChecked = true;
+  updateOkozukaiUI();
+  await sendBle('LED:'+makeNumberPattern(Math.abs(okozukaiBalance) % 10));
+  setMessage(`📊 のこり: ${okozukaiBalance}えん`);
+  render();
+  await sleep(500);
+}
+function updateOkozukaiUI(){
+  const ledger = document.getElementById('okozukai-ledger');
+  const bal = document.getElementById('okozukai-balance');
+  if(!ledger) return;
+  let html = '';
+  okozukaiEntries.forEach(e => {
+    const color = e.type === 'income' ? '#00b894' : '#e17055';
+    const sign = e.type === 'income' ? '+' : '-';
+    const label = e.type === 'income' ? 'しゅうにゅう' : `しゅっぴ(${e.item})`;
+    html += `<div style="color:${color};margin:4px 0;">${sign}${e.amount}えん ${label}</div>`;
+  });
+  ledger.innerHTML = html;
+  if(okozukaiChecked){
+    bal.textContent = `のこり: ${okozukaiBalance}えん`;
+    bal.style.color = okozukaiBalance >= 0 ? '#00b894' : '#e17055';
+  } else {
+    bal.textContent = '';
+  }
+}
+
+// Stage 19: Shopping runtime
+async function doKauItem(itemName) {
+  const s = stages[currentStage];
+  const item = s.shopItems.find(i => i.name === itemName);
+  if(!item) return;
+  if(shoppingRemaining < item.price) {
+    setMessage('💸 おかねが たりない！');
+    playFailSound();
+    await sendBle('LED:'+PATTERN_X);
+    throw 'no_money';
+  }
+  shoppingRemaining -= item.price;
+  shoppingCart.push(itemName);
+  playTone(523, 0.2);
+  setMessage(`${item.emoji} ${item.name}を かった！のこり ${shoppingRemaining}えん`);
+  await sendBle('LED:'+makeNumberPattern(Math.floor(shoppingRemaining/100)));
+  updateShoppingUI();
+  render();
+  await sleep(500);
+}
+function updateShoppingUI(){
+  const cartDiv = document.getElementById('shopping-cart');
+  const budgetDiv = document.getElementById('shopping-budget');
+  const resultDiv = document.getElementById('shopping-result');
+  const s = stages[currentStage];
+  if(!cartDiv) return;
+  budgetDiv.textContent = `よさん: ${s.budget}えん ／ のこり: ${shoppingRemaining}えん`;
+  let html = shoppingCart.map(name => {
+    const item = s.shopItems.find(i => i.name === name);
+    return `<div>${item ? item.emoji : '📦'} ${name} (${item ? item.price : '?'}えん)</div>`;
+  }).join('');
+  cartDiv.innerHTML = html || '<div style="color:#aaa;">まだ なにも かっていないよ</div>';
+  resultDiv.textContent = `かった: ${shoppingCart.length}こ`;
+}
+
+// Stage 20: Temperature runtime
+function generateTemperature() {
+  const temps = [10, 20, 30];
+  return temps[Math.floor(Math.random() * temps.length)];
+}
+async function doIfTempAbove(temp, callback) {
+  if(tempCurrent >= temp) {
+    setMessage(`🌡 ${tempCurrent}ど ≥ ${temp}ど：ルール じっこう！`);
+    await callback();
+  }
+  render();
+  await sleep(300);
+}
+
+async function doKiru(clothes) {
+  tempClothes = clothes;
+  const cname = clothes === 'tshirt' ? '👕Tシャツ' : clothes === 'jacket' ? '🧤ジャケット' : '🧥コート';
+  setMessage(`${cname} を きた！`);
+  render();
+  await sleep(300);
+}
+
+// Stage 21: AI Chat runtime
+const AI_RESPONSES = {
+  'どうぶつ': [
+    {match: ['ねこ','ネコ','猫'], response: 'ねこは どうぶつだよ！にゃーって なくよ🐱'},
+    {match: ['いぬ','イヌ','犬'], response: 'いぬは にんげんの ともだち！わんわん🐶'},
+    {match: ['うさぎ','ウサギ'], response: 'うさぎは みみが ながいよ！ぴょんぴょん🐰'},
+    {match: ['default'], response: 'どうぶつは いきものだよ！いろんな どうぶつが いるね🦁'}
+  ],
+  'たべもの': [
+    {match: ['りんご','リンゴ'], response: 'りんごは あかくて あまい くだものだよ🍎'},
+    {match: ['カレー','かれー'], response: 'カレーは スパイスの おりょうり！おいしいね🍛'},
+    {match: ['default'], response: 'たべものは からだの エネルギーに なるよ！🍽'}
+  ],
+  'いろ': [
+    {match: ['あか','赤'], response: 'あかは ポストや りんごの いろだよ🔴'},
+    {match: ['あお','青'], response: 'あおは そらや うみの いろだよ🔵'},
+    {match: ['default'], response: 'いろは たくさん あるよ！にじは 7しょくだね🌈'}
+  ]
+};
+
+function aiChatRespond(question) {
+  for(const [category, entries] of Object.entries(AI_RESPONSES)){
+    for(const entry of entries){
+      if(entry.match[0] === 'default') continue;
+      if(entry.match.some(m => question.includes(m))){
+        aiChatCategories.add(category);
+        return {category, response: entry.response};
+      }
+    }
+  }
+  // Check for category keywords
+  if(question.includes('どうぶつ') || question.includes('いきもの')){
+    aiChatCategories.add('どうぶつ');
+    return {category:'どうぶつ', response: AI_RESPONSES['どうぶつ'].find(e=>e.match[0]==='default').response};
+  }
+  if(question.includes('たべもの') || question.includes('ごはん') || question.includes('おいしい')){
+    aiChatCategories.add('たべもの');
+    return {category:'たべもの', response: AI_RESPONSES['たべもの'].find(e=>e.match[0]==='default').response};
+  }
+  if(question.includes('いろ') || question.includes('なにいろ') || question.includes('色')){
+    aiChatCategories.add('いろ');
+    return {category:'いろ', response: AI_RESPONSES['いろ'].find(e=>e.match[0]==='default').response};
+  }
+  return {category: null, response: 'うーん、わからないなぁ🤔「どうぶつ」「たべもの」「いろ」について きいてみてね！'};
+}
+
+async function aiChatSend(){
+  const input = document.getElementById('aichat-input');
+  const log = document.getElementById('aichat-log');
+  const q = input.value.trim();
+  if(!q) return;
+  input.value = '';
+  // Show question
+  log.innerHTML += `<div style="text-align:right;margin:6px 0;"><span style="background:#6c5ce7;color:#fff;padding:6px 12px;border-radius:12px;display:inline-block;">${q}</span></div>`;
+  await sendBle('LED:01010,00000,01110,00100,00100'); // ? pattern
+  // Think...
+  await sleep(800);
+  const result = aiChatRespond(q);
+  await sendBle('LED:00100,00100,00100,00000,00100'); // ! pattern
+  log.innerHTML += `<div style="text-align:left;margin:6px 0;"><span style="background:#ddd;color:#333;padding:6px 12px;border-radius:12px;display:inline-block;">🤖 ${result.response}</span></div>`;
+  if(result.category) {
+    playTone(523, 0.15); await sleep(150); playTone(659, 0.15);
+  }
+  log.scrollTop = log.scrollHeight;
+  // Update category display
+  const cats = ['どうぶつ','たべもの','いろ'];
+  document.getElementById('aichat-categories').textContent = cats.map(c => aiChatCategories.has(c) ? `✅${c}` : `⬜${c}`).join('  ');
+  render();
+  // Check clear
+  if(aiChatCategories.size >= 3){
+    await sleep(500);
+    setMessage('🎉 3カテゴリ クリア！AIはかせ！ 🎉');
+    await playFanfare(); celebrate();
+    await sendBle('LED:'+PATTERN_HEART);
+  }
 }
 
 // Number LED patterns for micro:bit
@@ -1621,16 +2241,43 @@ function loadStage() {
   document.getElementById('stage-info').textContent = s.name;
   setMessage(s.hint);
 
+  // Stage 16-21 state reset
+  trafficRules = [];
+  trafficIndex = 0;
+  collectedCoins = [];
+  coinPoints = 0;
+  okozukaiEntries = [];
+  okozukaiBalance = 0;
+  okozukaiChecked = false;
+  shoppingCart = [];
+  shoppingRemaining = s.type === 'shopping' ? (s.budget || 300) : 0;
+  tempRound = 0;
+  tempCorrect = 0;
+  tempCurrent = 0;
+  tempRules = [];
+  tempClothes = '';
+  aiChatCategories = new Set();
+
   // UI switching: show/hide panels based on stage type
   const blocklyDiv = document.getElementById('blocklyDiv');
   const jankenPanel = document.getElementById('janken-panel');
   const counterPanel = document.getElementById('counter-panel');
+  const okozukaiPanel = document.getElementById('okozukai-panel');
+  const shoppingPanel = document.getElementById('shopping-panel');
+  const temperaturePanel = document.getElementById('temperature-panel');
+  const aichatPanel = document.getElementById('aichat-panel');
   const btnRun = document.getElementById('btn-run');
 
-  blocklyDiv.style.display = (s.type === 'janken' || s.type === 'counter') ? 'none' : '';
+  const noBlockTypes = ['janken', 'counter', 'ai_chat'];
+  const specialPanelTypes = ['janken','counter','okozukai','shopping','temperature','ai_chat'];
+  blocklyDiv.style.display = noBlockTypes.includes(s.type) ? 'none' : '';
   jankenPanel.style.display = s.type === 'janken' ? 'flex' : 'none';
   counterPanel.style.display = s.type === 'counter' ? 'flex' : 'none';
-  btnRun.style.display = (s.type === 'janken' || s.type === 'counter') ? 'none' : '';
+  okozukaiPanel.style.display = s.type === 'okozukai' ? 'flex' : 'none';
+  shoppingPanel.style.display = s.type === 'shopping' ? 'flex' : 'none';
+  temperaturePanel.style.display = s.type === 'temperature' ? 'flex' : 'none';
+  aichatPanel.style.display = s.type === 'ai_chat' ? 'flex' : 'none';
+  btnRun.style.display = noBlockTypes.includes(s.type) ? 'none' : '';
 
   if(s.type === 'janken'){
     document.getElementById('janken-score').textContent = 'かち: 0 / 3';
@@ -1651,6 +2298,28 @@ function loadStage() {
     // Hook up sim buttons for counter
     buttonCallbackA = counterButtonA;
     buttonCallbackB = counterButtonB;
+  }
+  if(s.type === 'okozukai'){
+    document.getElementById('okozukai-ledger').innerHTML = '';
+    document.getElementById('okozukai-balance').textContent = '';
+  }
+  if(s.type === 'shopping'){
+    updateShoppingUI();
+    const itemsDiv = document.getElementById('shopping-items');
+    if(itemsDiv && s.shopItems){
+      itemsDiv.innerHTML = s.shopItems.map(i => `<div>${i.emoji} ${i.name} … ${i.price}えん</div>`).join('');
+    }
+  }
+  if(s.type === 'temperature'){
+    document.getElementById('temp-score').textContent = 'せいかい: 0 / 3';
+    document.getElementById('temp-result').textContent = '';
+    document.getElementById('temp-display').textContent = '';
+    document.getElementById('temp-question').textContent = '▶じっこう で おんどが でるよ！';
+  }
+  if(s.type === 'ai_chat'){
+    document.getElementById('aichat-log').innerHTML = '<div style="text-align:left;margin:6px 0;"><span style="background:#ddd;color:#333;padding:6px 12px;border-radius:12px;display:inline-block;">🤖 こんにちは！なんでも きいてね！</span></div>';
+    document.getElementById('aichat-input').value = '';
+    document.getElementById('aichat-categories').textContent = '⬜どうぶつ  ⬜たべもの  ⬜いろ';
   }
 
   workspace.updateToolbox(getToolboxForStage(currentStage));
@@ -1693,6 +2362,24 @@ function resetStage() {
   counterValue = 0;
   counterTarget = s.counterTarget || 10;
   counterCleared = false;
+  
+  // Stage 16-21 state reset
+  trafficRules = [];
+  trafficIndex = 0;
+  collectedCoins = [];
+  coinPoints = 0;
+  okozukaiEntries = [];
+  okozukaiBalance = 0;
+  okozukaiChecked = false;
+  shoppingCart = [];
+  shoppingRemaining = s.type === 'shopping' ? (s.budget || 300) : 0;
+  tempRound = 0;
+  tempCorrect = 0;
+  tempCurrent = 0;
+  tempRules = [];
+  tempClothes = '';
+  aiChatCategories = new Set();
+  
   simClear();
   setMessage(s.hint);
   if(s.type === 'janken'){
@@ -1705,6 +2392,23 @@ function resetStage() {
     document.getElementById('counter-status').textContent = '';
     buttonCallbackA = counterButtonA;
     buttonCallbackB = counterButtonB;
+  }
+  if(s.type === 'okozukai'){
+    updateOkozukaiUI();
+  }
+  if(s.type === 'shopping'){
+    updateShoppingUI();
+  }
+  if(s.type === 'temperature'){
+    document.getElementById('temp-score').textContent = 'せいかい: 0 / 3';
+    document.getElementById('temp-result').textContent = '';
+    document.getElementById('temp-display').textContent = '';
+    document.getElementById('temp-question').textContent = '▶じっこう で おんどが でるよ！';
+  }
+  if(s.type === 'ai_chat'){
+    document.getElementById('aichat-log').innerHTML = '<div style="text-align:left;margin:6px 0;"><span style="background:#ddd;color:#333;padding:6px 12px;border-radius:12px;display:inline-block;">🤖 こんにちは！なんでも きいてね！</span></div>';
+    document.getElementById('aichat-input').value = '';
+    document.getElementById('aichat-categories').textContent = '⬜どうぶつ  ⬜たべもの  ⬜いろ';
   }
   render();
 }
@@ -1819,6 +2523,60 @@ async function checkClear(){
     return jankenWins >= 3;
   } else if(s.type === 'counter'){
     return counterCleared;
+  } else if(s.type === 'signal'){
+    if(cat.x === s.goal.x && cat.y === s.goal.y){
+      setMessage('🎉 しんごう クリア！ 🎉');
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    setMessage('🤔 ゴールに とどかなかったよ。しんごうルールを かんがえてみよう！');
+    return false;
+  } else if(s.type === 'coins'){
+    if(cat.x === s.goal.x && cat.y === s.goal.y && coinPoints >= s.targetCoins){
+      setMessage(`🎉 ${coinPoints}ポイント あつめて ゴール！すごい！ 🎉`);
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    if(cat.x === s.goal.x && cat.y === s.goal.y){
+      setMessage(`🤔 ゴールには ついたけど ポイントが たりないよ（${coinPoints}/${s.targetCoins}）`);
+      return false;
+    }
+    setMessage('🤔 コインを あつめて ゴールを めざそう！');
+    return false;
+  } else if(s.type === 'okozukai'){
+    if(okozukaiChecked && okozukaiBalance === s.targetBalance){
+      setMessage('🎉 おこづかいちょう かんぺき！ 🎉');
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    if(okozukaiChecked){
+      setMessage(`🤔 のこりが ${okozukaiBalance}えん になったよ。ただしい こたえは ${s.targetBalance}えん！`);
+      return false;
+    }
+    setMessage('📒 ブロックを くんで ▶じっこう してね！');
+    return false;
+  } else if(s.type === 'shopping'){
+    if(shoppingCart.length >= 3){
+      setMessage(`🎉 ${shoppingCart.length}こ かえた！おかいもの じょうず！ 🎉`);
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    setMessage(`🤔 ${shoppingCart.length}こ かったよ。3こ いじょう かおう！`);
+    return false;
+  } else if(s.type === 'temperature'){
+    if(tempCorrect >= 3){
+      setMessage('🎉 おんどけい マスター！ 🎉');
+      await playFanfare(); celebrate();
+      await sendBle('LED:'+PATTERN_HEART);
+      return true;
+    }
+    return false;
+  } else if(s.type === 'ai_chat'){
+    return aiChatCategories.size >= 3;
   }
 }
 
@@ -1827,8 +2585,8 @@ async function runCode() {
   animating = true;
   const s = stages[currentStage];
 
-  // Janken and counter are non-block stages
-  if(s.type === 'janken' || s.type === 'counter'){
+  // Non-block stages
+  if(s.type === 'janken' || s.type === 'counter' || s.type === 'ai_chat'){
     animating = false;
     return;
   }
@@ -1997,6 +2755,177 @@ async function runCode() {
       animating = false;
       return;
     }
+  }
+
+  // Temperature stage special handling
+  if(s.type === 'temperature'){
+    if(tempCorrect >= 3){ animating = false; return; }
+    if(tempCurrent === 0){
+      // Generate temperature
+      tempCurrent = generateTemperature();
+      tempClothes = '';
+      document.getElementById('temp-display').textContent = `${tempCurrent}℃`;
+      document.getElementById('temp-question').textContent = 'ブロックで ふくを えらんで ▶じっこう！';
+      await sendBle('LED:'+makeNumberPattern(Math.floor(tempCurrent/10)));
+      render();
+      setMessage(`🌡 ${tempCurrent}ど！どんな ふくを きる？`);
+      animating = false;
+      return;
+    }
+    // Execute blocks to get clothes choice
+    tempClothes = '';
+    const code = gen.workspaceToCode(workspace);
+    if(!code.trim()){ setMessage('ブロックを おいてね！'); animating = false; return; }
+    try {
+      const fn = new Function('tempCurrent','doIfTempAbove','doKiru',
+        `return (async()=>{\n${code}\n})()`);
+      await fn(tempCurrent, doIfTempAbove, doKiru);
+    } catch(e) { console.error(e); }
+    // Check answer
+    let correct = false;
+    if(tempCurrent >= 30 && tempClothes === 'tshirt') correct = true;
+    if(tempCurrent >= 20 && tempCurrent < 30 && tempClothes === 'jacket') correct = true;
+    if(tempCurrent < 20 && tempClothes === 'coat') correct = true;
+    const cname = tempClothes === 'tshirt' ? '👕Tシャツ' : tempClothes === 'coat' ? '🧥コート' : '🧤ジャケット';
+    if(correct){
+      tempCorrect++;
+      document.getElementById('temp-score').textContent = `せいかい: ${tempCorrect} / 3`;
+      document.getElementById('temp-result').innerHTML = `<span style="color:#00b894;">✅ ${cname} せいかい！</span>`;
+      playTone(523, 0.2); await sleep(200); playTone(784, 0.3);
+      await sendBle('LED:'+PATTERN_HEART);
+    } else {
+      const hint = tempCurrent >= 30 ? 'Tシャツ' : tempCurrent >= 20 ? 'ジャケット' : 'コート';
+      document.getElementById('temp-result').innerHTML = `<span style="color:#e17055;">❌ ${tempCurrent}どには ${hint}だよ！</span>`;
+      playFailSound();
+      await sendBle('LED:'+PATTERN_X);
+    }
+    render();
+    await sleep(1000);
+    if(tempCorrect >= 3){
+      await checkClear();
+    } else {
+      // Next round
+      tempCurrent = generateTemperature();
+      tempClothes = '';
+      document.getElementById('temp-display').textContent = `${tempCurrent}℃`;
+      document.getElementById('temp-question').textContent = 'つぎの おんど！ふくを えらんで ▶じっこう！';
+      document.getElementById('temp-result').textContent = '';
+      await sendBle('LED:'+makeNumberPattern(Math.floor(tempCurrent/10)));
+      render();
+      setMessage(`🌡 ${tempCurrent}ど！どんな ふくを きる？`);
+    }
+    animating = false;
+    return;
+  }
+
+  // Signal stage: move through signals
+  if(s.type === 'signal'){
+    cat = {...s.start};
+    render();
+    await sleep(300);
+    const code = gen.workspaceToCode(workspace);
+    if(!code.trim()){ setMessage('ブロックを おいてね！'); animating = false; return; }
+    setMessage('じっこうちゅう... 🚦');
+    try {
+      const fn = new Function('moveForward','turnRight','turnLeft','doIfSignalColor',
+        `return (async()=>{\n${code}\n})()`);
+      await fn(moveForward, turnRight, turnLeft, doIfSignalColor);
+      await checkClear();
+    } catch(e) {
+      if(e !== 'wall') {
+        setMessage('❌ エラーが おきちゃった。ブロックを たしかめてね！');
+        console.error(e);
+      }
+    }
+    animating = false;
+    return;
+  }
+
+  // Coins stage: use standard movement with coin collection
+  if(s.type === 'coins'){
+    cat = {...s.start};
+    collectedCoins = [];
+    coinPoints = 0;
+    render();
+    await sleep(300);
+    const code = gen.workspaceToCode(workspace);
+    if(!code.trim()){ setMessage('ブロックを おいてね！'); animating = false; return; }
+    setMessage('じっこうちゅう... ⭐');
+    const coinMoveForward = async () => {
+      await moveForward();
+      // Check coin at new position
+      const cx = Math.round(cat.x), cy = Math.round(cat.y);
+      const coinIdx = s.coins.findIndex(c => c[0]===cx && c[1]===cy);
+      if(coinIdx >= 0 && !collectedCoins.some(cc => cc[0]===cx && cc[1]===cy)){
+        collectedCoins.push([cx, cy]);
+        coinPoints++;
+        playTone(880, 0.15);
+        await sendBle('LED:'+makeNumberPattern(coinPoints));
+        setMessage(`⭐ ポイント +1！（${coinPoints}こ）`);
+        render();
+        await sleep(200);
+      }
+    };
+    try {
+      const fn = new Function('moveForward','turnRight','turnLeft','sleep',
+        `return (async()=>{\n${code}\n})()`);
+      await fn(coinMoveForward, turnRight, turnLeft, sleep);
+      await checkClear();
+    } catch(e) {
+      if(e !== 'wall') {
+        setMessage('❌ エラーが おきちゃった。ブロックを たしかめてね！');
+        console.error(e);
+      }
+    }
+    animating = false;
+    return;
+  }
+
+  // Okozukai stage
+  if(s.type === 'okozukai'){
+    okozukaiEntries = [];
+    okozukaiBalance = 0;
+    okozukaiChecked = false;
+    updateOkozukaiUI();
+    render();
+    const code = gen.workspaceToCode(workspace);
+    if(!code.trim()){ setMessage('ブロックを おいてね！'); animating = false; return; }
+    setMessage('じっこうちゅう... 📒');
+    try {
+      const fn = new Function('doOkozukai','doTsukatta','doNokoriWa',
+        `return (async()=>{\n${code}\n})()`);
+      await fn(doOkozukai, doTsukatta, doNokoriWa);
+      await checkClear();
+    } catch(e) {
+      setMessage('❌ エラーが おきちゃった。');
+      console.error(e);
+    }
+    animating = false;
+    return;
+  }
+
+  // Shopping stage
+  if(s.type === 'shopping'){
+    shoppingCart = [];
+    shoppingRemaining = s.budget;
+    updateShoppingUI();
+    render();
+    const code = gen.workspaceToCode(workspace);
+    if(!code.trim()){ setMessage('ブロックを おいてね！'); animating = false; return; }
+    setMessage('じっこうちゅう... 🛒');
+    try {
+      const fn = new Function('doKauItem',
+        `return (async()=>{\n${code}\n})()`);
+      await fn(doKauItem);
+      await checkClear();
+    } catch(e) {
+      if(e !== 'no_money') {
+        setMessage('❌ エラーが おきちゃった。');
+        console.error(e);
+      }
+    }
+    animating = false;
+    return;
   }
 
   // Standard stages - reset and run
